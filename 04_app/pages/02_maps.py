@@ -1,32 +1,38 @@
 import streamlit as st
-import pydeck as pdk
-from services.load_data import load_gold_stations
+import pandas as pd
+import folium
+from streamlit_folium import st_folium
 
-st.header("🗺️ Interactive Maps")
+st.header("📊 Overview")
 
-stations = load_gold_stations()
+# Display cities map
+st.subheader("📍 Cities Covered")
+cities_data = pd.DataFrame({
+    'lat': [59.9139, 60.3913, 63.4305],
+    'lon': [10.7522, 5.3221, 10.3951],
+    'city': ['Oslo', 'Bergen', 'Trondheim'],
+})
 
-# Station map with pydeck
-st.subheader("Station Locations")
-st.pydeck_chart(pdk.Deck(
-    map_style='mapbox://styles/mapbox/light-v9',
-    initial_view_state=pdk.ViewState(
-        latitude=59.9,
-        longitude=10.75,
-        zoom=11,
-        pitch=50,
-    ),
-    layers=[
-        pdk.Layer(
-            'ScatterplotLayer',
-            data=stations,
-            get_position='[lon, lat]',
-            get_color='[200, 30, 0, 160]',
-            get_radius=100,
-        ),
-    ],
-))
+# Create Folium map centered on Norway
+m = folium.Map(
+    location=[61.5, 8.5],
+    zoom_start=5,
+    tiles="CartoDB Positron"
+)
 
-# Heatmap
-st.subheader("Trip Density Heatmap")
-st.map(stations[['lat', 'lon']])
+# Add markers for each city
+for idx, row in cities_data.iterrows():
+    folium.CircleMarker(
+        location=[row['lat'], row['lon']],
+        radius=15,
+        popup=row['city'],
+        tooltip=row['city'],
+        color='white',
+        fill=True,
+        fillColor='#FF6B6B',
+        fillOpacity=0.8,
+        weight=2
+    ).add_to(m)
+
+# Display the map
+st_folium(m, width=700, height=500)
