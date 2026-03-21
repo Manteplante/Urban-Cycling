@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14.3"
 
       - name: Install dependencies
         run: |
@@ -29,4 +29,10 @@ jobs:
       - name: Run scraper
         run: |
           cd 01_scraper
-          python main_data_fetcher_cleaner_month_automator.py
+          python scraper_main.py
+
+      - name: Run ETL pipeline (bronze → silver → gold)
+        run: python 03_processing/run_pipeline.py
+
+      - name: Show layer status
+        run: python 03_processing/run_pipeline.py --status

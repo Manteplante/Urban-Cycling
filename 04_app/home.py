@@ -1,46 +1,144 @@
+"""
+Urban Cycling Analytics — Landing Page
+Run from the 04_app/ directory:
+    streamlit run home.py
+"""
+
+import pandas as pd
 import streamlit as st
 
-st.title("Urban Cycling Analytics Dashboard")
-st.markdown("**Real-time insights from Oslo, Bergen, and Trondheim bike-sharing data**")
+from components.metrics import headline_metrics, data_status_banner
+from services.gold import gold
+
+st.set_page_config(
+    page_title="Urban Cycling — Norwegian Bike Analytics",
+    page_icon="🚲",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ── Header ─────────────────────────────────────────────────────────────────────
+st.markdown(
+    """
+    <h1 style='text-align:center; color:#FF6B6B; margin-bottom:0;'>🚲 Urban Cycling Analytics</h1>
+    <p style='text-align:center; color:#666; font-size:1.05rem; margin-top:6px;'>
+        Norwegian city bike-sharing data &mdash; Oslo · Bergen · Trondheim
+    </p>
+    """,
+    unsafe_allow_html=True,
+)
+st.divider()
+
+# ── Data status ────────────────────────────────────────────────────────────────
+data_status_banner()
+
+# ── KPI metrics (latest available year) ───────────────────────────────────────
+available_years = gold.available_years()
+if available_years:
+    latest_year = max(available_years)
+    with st.spinner(f"Loading KPIs for {latest_year}…"):
+        df_kpi = gold.query().years([latest_year]).load()
+    headline_metrics(df_kpi)
+    st.caption(f"KPIs for {latest_year} · use the sidebar on Analysis / Maps pages to adjust filters.")
+else:
+    headline_metrics(pd.DataFrame())
 
 st.divider()
 
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.metric("Cities Covered", 3)
-    st.write("🏙️ Oslo, Bergen, Trondheim")
-
-with col2:
-    st.metric("Data Period", "2018-2024")
-    st.write("📅 Multi-year historical data")
-
-with col3:
-    st.metric("Data Source", "Automated")
-    st.write("🤖 Monthly updates via scraper")
-
-st.divider()
-
-st.subheader("📊 Dashboard Pages")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.page_link("pages/02_maps.py", label="📍 Maps", icon="🗺️")
-    st.write("Interactive maps of bike-sharing stations")
-
-with col2:
-    st.page_link("pages/03_analysis.py", label="📈 Analysis", icon="📈")
-    st.write("Detailed statistical analysis and insights")
+# ── City cards ─────────────────────────────────────────────────────────────────
+st.subheader("Cities Covered")
+cities = [
+    ("🏙️ Oslo",       "Norway's capital and largest city",  "#FF6B6B", "Oslo Bysykkel"),
+    ("🌊 Bergen",      "Gateway to the western fjords",      "#4ECDC4", "Bergen Bysykkel"),
+    ("🏔️ Trondheim",  "Historic city of science & culture", "#FFD93D", "Trondheim Bysykkel"),
+]
+for col, (title, desc, colour, provider) in zip(st.columns(3), cities):
+    with col:
+        st.markdown(
+            f"""
+            <div style='border-left:4px solid {colour}; padding:14px 18px;
+                        border-radius:4px; background:#fafafa; height:110px;'>
+                <h3 style='margin:0; color:{colour};'>{title}</h3>
+                <p style='margin:5px 0 2px; color:#333; font-size:.9rem;'>{desc}</p>
+                <small style='color:#999;'>{provider}</small>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 st.divider()
 
-st.info("💡 Use the filters in the sidebar to customize your view across all pages")
+# ── Navigation cards ───────────────────────────────────────────────────────────
+st.subheader("Explore the Dashboard")
+nav_col1, nav_col2 = st.columns(2)
 
-# Sidebar filters (global across pages)
+with nav_col1:
+    st.markdown(
+        """
+        <div style='border:1px solid #FF6B6B; border-radius:8px; padding:20px; min-height:130px;'>
+            <h3 style='color:#FF6B6B;'>🗺️ Maps</h3>
+            <p style='color:#444;'>
+                Interactive station maps showing where trips start and end.
+                Station bubbles are sized and coloured by trip volume so the
+                busiest hubs stand out instantly.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/02_maps.py", label="Open Maps →")
+
+with nav_col2:
+    st.markdown(
+        """
+        <div style='border:1px solid #4ECDC4; border-radius:8px; padding:20px; min-height:130px;'>
+            <h3 style='color:#4ECDC4;'>📈 Analysis</h3>
+            <p style='color:#444;'>
+                Tabbed analysis covering temporal patterns (hourly, daily, monthly),
+                top routes, trip duration distributions, and a regression trend view.
+                New analysis tabs are easy to add.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/03_analysis.py", label="Open Analysis →")
+
+st.divider()
+
+# ── Getting started ────────────────────────────────────────────────────────────
+with st.expander("ℹ️  Getting started — how to load your data"):
+    st.markdown(
+        """
+        **1. Place raw CSVs into the data folder**
+        ```
+        02_data/raw/oslo/        ← CSV files from Oslo Bysykkel scraper
+        02_data/raw/bergen/      ← Bergen
+        02_data/raw/trondheim/   ← Trondheim
+        ```
+        The scraper in `01_scraper/` handles this automatically on each run.
+
+        **2. Build the star schema**
+        ```bash
+        cd Urban-Cycling
+        python 03_processing/transform.py
+        ```
+        This produces `02_data/processed/facts/` and `02_data/processed/dimensions/`.
+
+        **3. Reload the app**
+        Streamlit will pick up the new data on the next page interaction,
+        or press **Clear Cache** in the sidebar.
+        """
+    )
+
+# ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.header("Filters")
-    city = st.multiselect("Select Cities", ["Oslo", "Bergen", "Trondheim"], default=["Oslo"])
-    date_range = st.date_input("Date Range", [])
-    st.divider()
-    st.info("Data updated monthly via automated scraper")
+    st.markdown("**Urban Cycling Analytics**")
+    st.markdown("---")
+    st.markdown("📅 **Data range:** 2018 – 2025")
+    st.markdown("🌍 **Source:** Oslo / Bergen / Trondheim Bysykkel open data")
+    st.markdown("🔄 **Updated:** Monthly via automated scraper")
+    st.markdown("---")
+    if st.button("🗑️ Clear Cache"):
+        st.cache_data.clear()
+        st.success("Cache cleared!")

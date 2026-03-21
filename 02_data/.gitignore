@@ -1,1 +1,20 @@
-*.csv
+# ── Medallion data layers ──────────────────────────────────────────────────────
+#  CSV and image files are gitignored (can be large / regenerated).
+#  Folder structure is preserved via .gitkeep files.
+
+# Bronze  — raw scraped CSVs
+bronze/**/*.csv
+
+# Silver  — consolidated per city × year
+silver/**/*.csv
+
+# Gold    — star schema tables
+gold/dimensions/*.csv
+gold/facts/*.csv
+
+# Gold / notebook exports  — figures and DataFrames from notebooks
+gold/notebook_exports/*.csv
+gold/notebook_exports/*.png
+
+# Allow .gitkeep files so empty directories are tracked
+!**/.gitkeep
