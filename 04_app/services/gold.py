@@ -131,6 +131,14 @@ def _facts(years: tuple[int, ...]) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=3600)
+def _top_trip_patterns() -> pd.DataFrame:
+    path = _FACTS_PATH / "fact_top_trip_patterns.csv"
+    if not path.exists():
+        return pd.DataFrame()
+    return pd.read_csv(path)
+
+
+@st.cache_data(ttl=3600)
 def _joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
     """Fully denormalised trips table, filtered and joined once, then cached."""
     facts = _facts(years)
@@ -319,6 +327,38 @@ class _GoldCatalog:
     def cities(self) -> pd.DataFrame:
         """City lookup table (city_id, city_name, display_name, country)."""
         return _cities()
+
+    def top_trip_patterns(
+        self,
+        city: str | None = None,
+        years: list[int] | None = None,
+        limit: int = 10,
+    ) -> pd.DataFrame:
+        """Precomputed top route patterns for map overlays."""
+        df = _top_trip_patterns().copy()
+        if df.empty:
+            return df
+
+        if city:
+            city_lower = city.strip().lower()
+            city_dim = _cities()
+            candidate_ids = city_dim[
+                (city_dim["city_name"].str.lower() == city_lower)
+                | (city_dim["display_name"].str.lower() == city_lower)
+            ]["city_id"].tolist()
+            if candidate_ids:
+                df = df[df["city_id"].isin(candidate_ids)]
+            else:
+                return pd.DataFrame(columns=df.columns)
+
+        if years and "year" in df.columns:
+            year_set = set(int(y) for y in years)
+            df = df[df["year"].isin(year_set)]
+
+        if "rank" in df.columns:
+            df = df[df["rank"] <= int(limit)]
+
+        return df.reset_index(drop=True)
 
     # ── Fluent query builder ──────────────────────────────────────────────────
 

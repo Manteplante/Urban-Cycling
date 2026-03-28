@@ -361,6 +361,139 @@ def _build_fact_trips(df: pd.DataFrame) -> dict:
     }
 
 
+def _build_fact_top_trip_patterns(df: pd.DataFrame, n: int = 10, years: list[int] | None = None) -> pd.DataFrame:
+    """Build top N intra-city station-to-station route patterns per city/year."""
+    out = _ensure_station_ids(df)
+
+    required = [
+        "city_id",
+        "start_station_id",
+        "start_station_name",
+        "start_station_latitude",
+        "start_station_longitude",
+        "end_station_id",
+        "end_station_name",
+        "end_station_latitude",
+        "end_station_longitude",
+        "started_at",
+    ]
+    if any(col not in out.columns for col in required):
+        return pd.DataFrame()
+
+    out = out.dropna(
+        subset=[
+            "city_id",
+            "start_station_id",
+            "end_station_id",
+            "start_station_latitude",
+            "start_station_longitude",
+            "end_station_latitude",
+            "end_station_longitude",
+            "started_at",
+        ]
+    ).copy()
+    if out.empty:
+        return pd.DataFrame()
+
+    out["city_id"] = pd.to_numeric(out["city_id"], errors="coerce")
+    out["year"] = pd.to_datetime(out["started_at"], errors="coerce").dt.year
+    out = out.dropna(subset=["city_id", "year"])
+    if out.empty:
+        return pd.DataFrame()
+
+    out["city_id"] = out["city_id"].astype(int)
+    out["year"] = out["year"].astype(int)
+
+    if years:
+        year_filter = set(int(y) for y in years)
+        out = out[out["year"].isin(year_filter)].copy()
+        if out.empty:
+            return pd.DataFrame()
+
+    if "duration_seconds" not in out.columns and "ended_at" in out.columns:
+        out["ended_at"] = pd.to_datetime(out["ended_at"], errors="coerce")
+        out["duration_seconds"] = (out["ended_at"] - out["started_at"]).dt.total_seconds()
+
+    group_cols = [
+        "city_id",
+        "year",
+        "start_station_id",
+        "start_station_name",
+        "start_station_latitude",
+        "start_station_longitude",
+        "end_station_id",
+        "end_station_name",
+        "end_station_latitude",
+        "end_station_longitude",
+    ]
+
+    patterns = (
+        out.groupby(group_cols, dropna=False)
+        .agg(
+            trip_count=("start_station_id", "size"),
+            avg_duration_seconds=("duration_seconds", "mean"),
+            median_duration_seconds=("duration_seconds", "median"),
+        )
+        .reset_index()
+    )
+    if patterns.empty:
+        return patterns
+
+    patterns["rank"] = (
+        patterns.groupby(["city_id", "year"])["trip_count"]
+        .rank(method="dense", ascending=False)
+        .astype(int)
+    )
+    patterns = patterns[patterns["rank"] <= int(n)].copy()
+
+    totals = (
+        out.groupby(["city_id", "year"], as_index=False)
+        .size()
+        .rename(columns={"size": "city_year_trips"})
+    )
+    patterns = patterns.merge(totals, on=["city_id", "year"], how="left")
+    patterns["percent_of_city_trips"] = (
+        (patterns["trip_count"] / patterns["city_year_trips"]) * 100
+    ).round(2)
+
+    city_name_map = {v: CITY_DISPLAY_MAP[k] for k, v in CITY_ID_MAP.items()}
+    patterns["city_name"] = patterns["city_id"].map(city_name_map)
+
+    patterns = patterns.rename(
+        columns={
+            "start_station_latitude": "start_lat",
+            "start_station_longitude": "start_lon",
+            "end_station_latitude": "end_lat",
+            "end_station_longitude": "end_lon",
+        }
+    )
+
+    keep_cols = [
+        "rank",
+        "city_id",
+        "city_name",
+        "year",
+        "start_station_id",
+        "start_station_name",
+        "start_lat",
+        "start_lon",
+        "end_station_id",
+        "end_station_name",
+        "end_lat",
+        "end_lon",
+        "trip_count",
+        "percent_of_city_trips",
+        "avg_duration_seconds",
+        "median_duration_seconds",
+    ]
+
+    return (
+        patterns[keep_cols]
+        .sort_values(["city_id", "year", "rank", "trip_count"], ascending=[True, True, True, False])
+        .reset_index(drop=True)
+    )
+
+
 def run_silver_to_gold() -> None:
     """Stage 2: Read all silver CSVs → build star schema → write gold."""
     print("\n[Stage 2]  Silver → Gold")
@@ -396,6 +529,11 @@ def run_silver_to_gold() -> None:
         print(f"  [gold/fact] fact_trips_{year}: {len(fact_df):>8,} trips")
         total_trips += len(fact_df)
 
+    top_patterns = _build_fact_top_trip_patterns(all_data, n=10)
+    top_patterns_path = FACTS_PATH / "fact_top_trip_patterns.csv"
+    top_patterns.to_csv(top_patterns_path, index=False)
+    print(f"  [gold/fact] fact_top_trip_patterns: {len(top_patterns):>8,} rows")
+
     print(f"  Total gold trips: {total_trips:,}")
 
 
@@ -417,13 +555,36 @@ def run_etl(silver: bool = True, gold: bool = True) -> None:
     print("\n  Done.\n")
 
 
+def run_gold_top_patterns_only(years: list[int] | None = None) -> None:
+    """Incremental mode: rebuild only fact_top_trip_patterns.csv from silver."""
+    print("\n[Stage 2b]  Silver → Gold (top patterns only)")
+    FACTS_PATH.mkdir(parents=True, exist_ok=True)
+
+    all_data = _load_all_silver()
+    if all_data.empty:
+        print("  [!] No silver data found. Run Stage 1 first.")
+        return
+
+    top_patterns = _build_fact_top_trip_patterns(all_data, n=10, years=years)
+    top_patterns_path = FACTS_PATH / "fact_top_trip_patterns.csv"
+    top_patterns.to_csv(top_patterns_path, index=False)
+
+    years_txt = f" for years {sorted(set(years))}" if years else ""
+    print(f"  [gold/fact] fact_top_trip_patterns{years_txt}: {len(top_patterns):>8,} rows")
+    print("\n  Done.\n")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Urban Cycling Medallion ETL")
     parser.add_argument("--silver", action="store_true", help="Bronze → Silver only")
     parser.add_argument("--gold",   action="store_true", help="Silver → Gold only")
+    parser.add_argument("--top-patterns", action="store_true", help="Rebuild only fact_top_trip_patterns.csv")
+    parser.add_argument("--years", nargs="+", type=int, help="Optional year filter for --top-patterns")
     args = parser.parse_args()
 
-    if args.silver and not args.gold:
+    if args.top_patterns:
+        run_gold_top_patterns_only(years=args.years)
+    elif args.silver and not args.gold:
         run_etl(silver=True, gold=False)
     elif args.gold and not args.silver:
         run_etl(silver=False, gold=True)

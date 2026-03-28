@@ -16,7 +16,12 @@ import streamlit as st
 from services.gold import gold, GoldQuery
 
 
-def sidebar_filters(key_prefix: str = "") -> GoldQuery:
+def sidebar_filters(
+    key_prefix: str = "",
+    include_city: bool = True,
+    default_cities: list[str] | None = None,
+    default_years: list[int] | None = None,
+) -> GoldQuery:
     """Render city, year, and optional month filters in the sidebar.
 
     Returns a GoldQuery pre-seeded with the user's selections.
@@ -33,16 +38,27 @@ def sidebar_filters(key_prefix: str = "") -> GoldQuery:
     with st.sidebar:
         st.markdown("### ⚙️ Filters")
 
-        selected_cities = st.multiselect(
-            "City",
-            options=all_cities,
-            default=["Oslo"] if "Oslo" in all_cities else all_cities[:1],
-            key=f"{key_prefix}_cities",
-        )
+        selected_cities: list[str] = []
+        if include_city:
+            city_defaults = (
+                default_cities
+                if default_cities is not None
+                else (["Oslo"] if "Oslo" in all_cities else all_cities[:1])
+            )
+            selected_cities = st.multiselect(
+                "City",
+                options=all_cities,
+                default=[c for c in city_defaults if c in all_cities],
+                key=f"{key_prefix}_cities",
+            )
         selected_years = st.multiselect(
             "Year",
             options=all_years,
-            default=[max(all_years)] if all_years else [],
+            default=(
+                [y for y in default_years if y in all_years]
+                if default_years is not None
+                else ([max(all_years)] if all_years else [])
+            ),
             key=f"{key_prefix}_years",
         )
 

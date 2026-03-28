@@ -100,6 +100,74 @@ def top_routes(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     )
 
 
+def route_slicer_options(patterns_df: pd.DataFrame) -> pd.DataFrame:
+    """Build stable route keys and user-facing labels for map slicers."""
+    if patterns_df.empty:
+        return pd.DataFrame()
+
+    required = [
+        "rank",
+        "city_name",
+        "year",
+        "start_station_name",
+        "end_station_name",
+        "trip_count",
+    ]
+    if any(col not in patterns_df.columns for col in required):
+        return pd.DataFrame()
+
+    out = patterns_df.copy()
+    out["route_key"] = (
+        out["city_name"].astype(str)
+        + "|"
+        + out["year"].astype(str)
+        + "|"
+        + out["start_station_name"].astype(str)
+        + "|"
+        + out["end_station_name"].astype(str)
+    )
+    out["route_label"] = out.apply(
+        lambda r: (
+            f"#{int(r['rank'])} {r['start_station_name']} -> {r['end_station_name']} "
+            f"({int(r['trip_count']):,} trips, {int(r['year'])})"
+        ),
+        axis=1,
+    )
+    return out
+
+
+def selected_route_lines(patterns_df: pd.DataFrame, selected_route_keys: list[str]) -> pd.DataFrame:
+    """Return only selected route lines, preserving map payload columns."""
+    if patterns_df.empty or not selected_route_keys:
+        return pd.DataFrame()
+
+    if "route_key" not in patterns_df.columns:
+        return pd.DataFrame()
+
+    keep_cols = [
+        "route_key",
+        "route_label",
+        "rank",
+        "city_name",
+        "year",
+        "start_station_name",
+        "end_station_name",
+        "start_lat",
+        "start_lon",
+        "end_lat",
+        "end_lon",
+        "trip_count",
+        "avg_duration_seconds",
+        "median_duration_seconds",
+    ]
+    keep_cols = [c for c in keep_cols if c in patterns_df.columns]
+    return (
+        patterns_df[patterns_df["route_key"].isin(selected_route_keys)][keep_cols]
+        .dropna(subset=[c for c in ["start_lat", "start_lon", "end_lat", "end_lon"] if c in keep_cols])
+        .reset_index(drop=True)
+    )
+
+
 def duration_stats(df: pd.DataFrame) -> dict:
     """Summary statistics for trip duration (in minutes)."""
     if df.empty or "duration_seconds" not in df.columns:
