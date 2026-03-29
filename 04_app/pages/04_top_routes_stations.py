@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
 st.set_page_config(
@@ -63,7 +64,7 @@ all_years = sorted(set(routes["year"]) | set(stations["year"]))
 with st.sidebar:
     st.markdown("### 🔝 Routes and stations filters")
     selected_city = st.selectbox("City", options=["All Cities"] + all_cities, index=0)
-    selected_years = st.multiselect("Year", options=all_years, default=all_years)
+    selected_years = st.multiselect("Year", options=all_years, default=default_year_selection(all_years))
     top_n = st.slider("Top N", min_value=5, max_value=30, value=10, step=1)
 
 if not selected_years:

@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
 st.set_page_config(
@@ -46,9 +47,16 @@ a3.metric("Years", f"{df['year'].nunique():,}")
 with st.sidebar:
     st.markdown("### 🍂 Seasonal filters")
     all_cities = sorted(df["city_name"].dropna().unique().tolist())
+    all_years = sorted(df["year"].dropna().astype(int).unique().tolist())
     selected_city = st.selectbox("City", options=["All Cities"] + all_cities, index=0)
+    selected_years = st.multiselect("Year", options=all_years, default=default_year_selection(all_years))
 
-plot_df = df if selected_city == "All Cities" else df[df["city_name"] == selected_city]
+if not selected_years:
+    st.warning("Select at least one year to display seasonal trends.")
+    st.stop()
+
+year_filtered = df[df["year"].isin(selected_years)]
+plot_df = year_filtered if selected_city == "All Cities" else year_filtered[year_filtered["city_name"] == selected_city]
 if plot_df.empty:
     st.warning("No data available for this city selection.")
     st.stop()

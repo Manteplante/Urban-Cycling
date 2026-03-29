@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
 st.set_page_config(
@@ -41,9 +42,19 @@ df["year"] = df["year"].astype(int)
 with st.sidebar:
     st.markdown("### 📅 Yearly filters")
     cities = sorted(df["city_name"].dropna().unique().tolist())
+    all_years = sorted(df["year"].dropna().astype(int).unique().tolist())
     selected_cities = st.multiselect("City", options=cities, default=cities)
+    selected_years = st.multiselect("Year", options=all_years, default=default_year_selection(all_years))
 
-plot_df = df[df["city_name"].isin(selected_cities)].copy() if selected_cities else pd.DataFrame()
+if not selected_years:
+    st.warning("Select at least one year to display yearly trends.")
+    st.stop()
+
+plot_df = (
+    df[df["city_name"].isin(selected_cities) & df["year"].isin(selected_years)].copy()
+    if selected_cities
+    else pd.DataFrame()
+)
 if plot_df.empty:
     st.warning("Select at least one city to display yearly trends.")
     st.stop()

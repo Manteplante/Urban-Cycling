@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
 st.set_page_config(
@@ -64,7 +65,7 @@ all_years = sorted(set(hourly["year"]) | set(daily["year"]) | set(monthly["year"
 with st.sidebar:
     st.markdown("### ⏱️ Temporal filters")
     selected_city = st.selectbox("City", options=["All Cities"] + all_cities, index=0)
-    selected_years = st.multiselect("Year", options=all_years, default=all_years)
+    selected_years = st.multiselect("Year", options=all_years, default=default_year_selection(all_years))
 
 if not selected_years:
     st.warning("Select at least one year to display charts.")

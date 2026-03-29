@@ -12,8 +12,21 @@ GoldQuery object.  Call .load() on it to get the DataFrame:
 That's it.  No city IDs, no path logic, no cache keys to manage.
 """
 
+from datetime import datetime
+
 import streamlit as st
 from services.gold import gold, GoldQuery
+
+
+def default_year_selection(all_years: list[int]) -> list[int]:
+    """Default to previous calendar year when available, else latest available year."""
+    if not all_years:
+        return []
+
+    target_year = datetime.now().year - 1
+    if target_year in all_years:
+        return [target_year]
+    return [max(all_years)]
 
 
 def sidebar_filters(
@@ -57,7 +70,7 @@ def sidebar_filters(
             default=(
                 [y for y in default_years if y in all_years]
                 if default_years is not None
-                else ([max(all_years)] if all_years else [])
+                else default_year_selection(all_years)
             ),
             key=f"{key_prefix}_years",
         )
@@ -109,7 +122,7 @@ def city_year_filters(key_prefix: str = "") -> tuple:
         selected_years = st.multiselect(
             "Year",
             options=all_years,
-            default=[max(all_years)] if all_years else [],
+            default=default_year_selection(all_years),
             key=f"{key_prefix}_years",
         )
         st.divider()

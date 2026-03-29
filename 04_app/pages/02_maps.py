@@ -24,7 +24,6 @@ st.header("🗺️ Bike Station Map")
 query = sidebar_filters(
     key_prefix="maps",
     include_city=False,
-    default_years=gold.available_years(),
 )
 
 
