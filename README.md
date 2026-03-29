@@ -63,14 +63,17 @@ independent, fully reproducible from the layer above it, and versioned in Git
 │   └── workspace/           ← Analysis workspace (notebooks live here)
 │       ├── utils.py         Shared analysis toolkit
 │       ├── 01_explore.ipynb Exploratory data analysis
-│       ├── 02_analysis.ipynb Multi-city / cross-year analysis
-│       └── 03_models.ipynb  Regression + clustering models
+│       ├── 02_temporal_patterns.ipynb Temporal patterns export notebook
+│       ├── 03_models.ipynb  Regression + clustering models
+│       ├── 04_seasonal_trends.ipynb Seasonal trend export notebook
+│       └── 05_top_routes_stations.ipynb Top routes export notebook
 └── 04_app/
     ├── home.py              Streamlit entrypoint (landing page)
     ├── pages/
     │   ├── 02_maps.py       Interactive station map
-    │   ├── 03_analysis.py   Tabbed data analysis
-    │   └── 04_insights.py   Notebook export viewer
+     │   ├── 03_temporal_patterns.py  Temporal chapter page
+     │   ├── 04_top_routes_stations.py Top routes chapter page
+     │   └── 05_seasonal_variations.py Seasonal chapter page
     ├── services/
     │   ├── gold.py          Gold catalog — the data access layer
     │   └── ...
@@ -288,8 +291,9 @@ The full regression + clustering workflow is in `workspace/03_models.ipynb`.
 |------|------|---------------|
 | Home | `home.py` | KPIs, city cards, navigation |
 | Maps | `pages/02_maps.py` | Folium station map, bubble size = trip volume |
-| Analysis | `pages/03_analysis.py` | Tabbed: temporal patterns, top routes, duration, trend |
-| Insights | `pages/04_insights.py` | Auto-displays all notebook exports |
+| Temporal Patterns | `pages/03_temporal_patterns.py` | Hourly, daily, and monthly demand patterns |
+| Top Routes & Stations | `pages/04_top_routes_stations.py` | Busiest route corridors and stations |
+| Seasonal Variations | `pages/05_seasonal_variations.py` | Winter vs summer comparisons |
 
 ### Gold catalog — the data access layer
 
@@ -371,26 +375,14 @@ export_figure("my_insight_chart", fig)
 export_df("my_insight_table", df)
 ```
 
-4. Refresh the Insights page in the Streamlit app — your chart and table
-   appear instantly with download buttons.
+4. Open the matching Streamlit chapter page — your exported data is loaded automatically.
 
-### Option B — New analysis tab on the Analysis page
+### Option B — New standalone chapter page
 
-1. Open `04_app/pages/03_analysis.py`.
-2. Add a label to the `st.tabs([...])` list:
-
-```python
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "⏱️ Temporal Patterns",
-    "🔝 Top Routes & Stations",
-    "📏 Trip Duration",
-    "📉 Trend Analysis",
-    "🆕 My New Analysis",      # ← add here
-])
-```
-
-3. Write your analysis inside the new `with tab5:` block.
-4. Add reusable helpers to `components/charts.py` or `services/transform.py`.
+1. Create a new notebook in `03_processing/workspace/`.
+2. Export a table with `export_df("my_chapter_data", df)`.
+3. Add a new page in `04_app/pages/` that reads the export via `services/notebook_outputs.py`.
+4. Link the page from `04_app/home.py`.
 
 ### Option C — New standalone page
 

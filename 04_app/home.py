@@ -39,7 +39,7 @@ if available_years:
     with st.spinner(f"Loading KPIs for {latest_year}…"):
         df_kpi = gold.query().years([latest_year]).load()
     headline_metrics(df_kpi)
-    st.caption(f"KPIs for {latest_year} · use the sidebar on Analysis / Maps pages to adjust filters.")
+    st.caption(f"KPIs for {latest_year} · use the sidebar on Maps / Temporal Patterns / Top Routes pages.")
 else:
     headline_metrics(pd.DataFrame())
 
@@ -70,7 +70,7 @@ st.divider()
 
 # ── Navigation cards ───────────────────────────────────────────────────────────
 st.subheader("Explore the Dashboard")
-nav_col1, nav_col2 = st.columns(2)
+nav_col1, nav_col2, nav_col3 = st.columns(3)
 
 with nav_col1:
     st.markdown(
@@ -92,17 +92,31 @@ with nav_col2:
     st.markdown(
         """
         <div style='border:1px solid #4ECDC4; border-radius:8px; padding:20px; min-height:130px;'>
-            <h3 style='color:#4ECDC4;'>📈 Analysis</h3>
+            <h3 style='color:#4ECDC4;'>⏱️ Temporal Patterns</h3>
             <p style='color:#444;'>
-                Tabbed analysis covering temporal patterns (hourly, daily, monthly),
-                top routes, trip duration distributions, and a regression trend view.
-                New analysis tabs are easy to add.
+                Explore when people ride with hourly, weekday, and monthly
+                demand profiles across selected cities and years.
             </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.page_link("pages/03_analysis.py", label="Open Analysis →")
+    st.page_link("pages/03_temporal_patterns.py", label="Open Temporal Patterns →")
+
+with nav_col3:
+    st.markdown(
+        """
+        <div style='border:1px solid #45B7D1; border-radius:8px; padding:20px; min-height:130px;'>
+            <h3 style='color:#45B7D1;'>🔝 Top Routes & Stations</h3>
+            <p style='color:#444;'>
+                Inspect the busiest station-to-station corridors and the most
+                used departure / arrival stations per city and year.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/04_top_routes_stations.py", label="Open Top Routes & Stations →")
 
 st.divider()
 
