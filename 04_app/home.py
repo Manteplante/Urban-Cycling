@@ -31,11 +31,12 @@ st.divider()
 
 # ── KPI metrics (latest available year) ───────────────────────────────────────
 available_years = gold.available_years()
+all_cities = gold.available_cities()
 if available_years:
     latest_year = max(available_years)
     with st.spinner(f"Loading KPIs for {latest_year}…"):
         df_kpi = gold.query().years([latest_year]).load()
-    headline_metrics(df_kpi)
+    headline_metrics(df_kpi, n_cities_override=len(all_cities) if all_cities else None)
     st.caption(f"Snapshot for {latest_year}")
 else:
     headline_metrics(pd.DataFrame())
@@ -143,6 +144,20 @@ with nav_col2:
     )
     st.page_link("pages/05_seasonal_variations.py", label="Open Seasonal Variations →")
 
+    st.markdown(
+        """
+        <div style='border:1px solid #2F6F9F; border-radius:8px; padding:20px; min-height:130px; margin-top:10px;'>
+            <h3 style='color:#2F6F9F;'>🧭 Longest Trips View</h3>
+            <p style='color:#444;'>
+                Select the top longest trip routes and inspect the start-end
+                corridor directly on the map.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/07_longest_trips_view.py", label="Open Longest Trips View →")
+
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### Chapters")
@@ -151,3 +166,4 @@ with st.sidebar:
     st.page_link("pages/04_top_routes_stations.py", label="🔝 Top Routes & Stations")
     st.page_link("pages/05_seasonal_variations.py", label="🍂 Seasonal Variations")
     st.page_link("pages/06_yearly_trends.py", label="📅 Yearly Trends")
+    st.page_link("pages/07_longest_trips_view.py", label="🧭 Longest Trips View")

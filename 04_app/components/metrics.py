@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 
 
-def headline_metrics(df: pd.DataFrame) -> None:
+def headline_metrics(df: pd.DataFrame, n_cities_override: int | None = None) -> None:
     """Four-column KPI row: trips, stations, avg duration, cities."""
     if df.empty:
         st.info(
@@ -17,6 +17,8 @@ def headline_metrics(df: pd.DataFrame) -> None:
     total_trips  = len(df)
     n_stations   = df["start_station_name"].nunique() if "start_station_name" in df.columns else 0
     n_cities     = df["city_name"].nunique()           if "city_name"          in df.columns else 0
+    if n_cities_override is not None:
+        n_cities = int(n_cities_override)
     avg_duration = (
         round(df["duration_seconds"].dropna().mean() / 60, 1)
         if "duration_seconds" in df.columns else None

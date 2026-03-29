@@ -61,11 +61,14 @@ monthly["month"] = pd.to_numeric(monthly["month"], errors="coerce")
 
 all_cities = sorted(set(hourly["city_name"]) | set(daily["city_name"]) | set(monthly["city_name"]))
 all_years = sorted(set(hourly["year"]) | set(daily["year"]) | set(monthly["year"]))
+weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+weekday_options = [d for d in weekday_order if d in set(daily["day_name"].dropna().unique())]
 
 with st.sidebar:
     st.markdown("### ⏱️ Temporal filters")
     selected_city = st.selectbox("City", options=["All Cities"] + all_cities, index=0)
     selected_years = st.multiselect("Year", options=all_years, default=default_year_selection(all_years))
+    selected_weekday = st.selectbox("Week-day", options=["All days"] + weekday_options, index=0)
 
 if not selected_years:
     st.warning("Select at least one year to display charts.")
@@ -79,6 +82,16 @@ else:
     hourly_plot = hourly[(hourly["year"].isin(selected_years)) & (hourly["city_name"] == selected_city)].copy()
     daily_plot = daily[(daily["year"].isin(selected_years)) & (daily["city_name"] == selected_city)].copy()
     monthly_plot = monthly[(monthly["year"].isin(selected_years)) & (monthly["city_name"] == selected_city)].copy()
+
+hourly_has_weekday = {"day_name", "day_of_week"}.issubset(set(hourly_plot.columns))
+if selected_weekday != "All days":
+    if hourly_has_weekday:
+        hourly_plot = hourly_plot[hourly_plot["day_name"] == selected_weekday].copy()
+    else:
+        st.info(
+            "Week-day filtering for the hourly chart requires the latest temporal export. "
+            "Please re-run 03_processing/workspace/02_temporal_patterns.ipynb."
+        )
 
 if hourly_plot.empty or daily_plot.empty or monthly_plot.empty:
     st.info("No temporal data found for the selected filters.")
@@ -96,11 +109,16 @@ st.caption(
 left, right = st.columns(2)
 
 with left:
+    hourly_title = (
+        f"Trips by Hour of Day ({selected_weekday})"
+        if selected_weekday != "All days"
+        else "Trips by Hour of Day"
+    )
     fig_hourly = px.bar(
         hourly_view,
         x="start_hour",
         y="trips",
-        title="Trips by Hour of Day",
+        title=hourly_title,
         labels={"start_hour": "Hour", "trips": "Trips"},
         color="trips",
         color_continuous_scale="Reds",
