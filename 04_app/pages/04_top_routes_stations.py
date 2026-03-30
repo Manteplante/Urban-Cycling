@@ -86,8 +86,19 @@ routes_plot["route"] = routes_plot["start_station_name"] + " -> " + routes_plot[
 routes_view = (
     routes_plot.groupby("route", as_index=False)["trips"].sum().sort_values("trips", ascending=False).head(top_n)
 )
-stations_view = (
-    stations_plot.groupby("station_name", as_index=False)["total_trips"].sum().sort_values("total_trips", ascending=False).head(top_n)
+start_stations_view = (
+    stations_plot[stations_plot["departures"] > 0]
+    .groupby("station_name", as_index=False)["departures"]
+    .sum()
+    .sort_values("departures", ascending=False)
+    .head(top_n)
+)
+end_stations_view = (
+    stations_plot[stations_plot["arrivals"] > 0]
+    .groupby("station_name", as_index=False)["arrivals"]
+    .sum()
+    .sort_values("arrivals", ascending=False)
+    .head(top_n)
 )
 
 col_a, col_b, col_c = st.columns(3)
@@ -95,38 +106,53 @@ col_a.metric("Route rows", f"{len(routes_plot):,}")
 col_b.metric("Station rows", f"{len(stations_plot):,}")
 col_c.metric("Unique stations", f"{stations_plot['station_name'].nunique():,}")
 
-left, right = st.columns(2)
+fig_routes = px.bar(
+    routes_view.sort_values("trips", ascending=True),
+    x="trips",
+    y="route",
+    orientation="h",
+    title=f"Top {top_n} Routes",
+    labels={"trips": "Trips", "route": "Route"},
+    color="trips",
+    color_continuous_scale="Oranges",
+)
+fig_routes.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
+st.plotly_chart(fig_routes, use_container_width=True)
 
-with left:
-    fig_routes = px.bar(
-        routes_view.sort_values("trips", ascending=True),
-        x="trips",
-        y="route",
-        orientation="h",
-        title=f"Top {top_n} Routes",
-        labels={"trips": "Trips", "route": "Route"},
-        color="trips",
-        color_continuous_scale="Oranges",
-    )
-    fig_routes.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
-    st.plotly_chart(fig_routes, use_container_width=True)
+start_col, end_col = st.columns(2)
 
-with right:
-    fig_stations = px.bar(
-        stations_view.sort_values("total_trips", ascending=True),
-        x="total_trips",
+with start_col:
+    fig_start_stations = px.bar(
+        start_stations_view.sort_values("departures", ascending=True),
+        x="departures",
         y="station_name",
         orientation="h",
-        title=f"Top {top_n} Stations",
-        labels={"total_trips": "Trips", "station_name": "Station"},
-        color="total_trips",
+        title=f"Top {top_n} Start Stations",
+        labels={"departures": "Departures", "station_name": "Start station"},
+        color="departures",
         color_continuous_scale="Tealgrn",
     )
-    fig_stations.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
-    st.plotly_chart(fig_stations, use_container_width=True)
+    fig_start_stations.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
+    st.plotly_chart(fig_start_stations, use_container_width=True)
+
+with end_col:
+    fig_end_stations = px.bar(
+        end_stations_view.sort_values("arrivals", ascending=True),
+        x="arrivals",
+        y="station_name",
+        orientation="h",
+        title=f"Top {top_n} End Stations",
+        labels={"arrivals": "Arrivals", "station_name": "End station"},
+        color="arrivals",
+        color_continuous_scale="Blues",
+    )
+    fig_end_stations.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
+    st.plotly_chart(fig_end_stations, use_container_width=True)
 
 with st.expander("Show detail tables"):
     st.markdown("**Routes**")
     st.dataframe(routes_view, use_container_width=True, hide_index=True)
-    st.markdown("**Stations**")
-    st.dataframe(stations_view, use_container_width=True, hide_index=True)
+    st.markdown("**Start stations**")
+    st.dataframe(start_stations_view, use_container_width=True, hide_index=True)
+    st.markdown("**End stations**")
+    st.dataframe(end_stations_view, use_container_width=True, hide_index=True)

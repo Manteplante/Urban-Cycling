@@ -13,6 +13,7 @@ st.set_page_config(
     layout="wide",
 )
 st.header("⏱️ Temporal Patterns")
+st.page_link("pages/03_work_trips.py", label="Open Work Trips (rush-hour routes) →")
 
 hourly = load_export_df("temporal_patterns_hourly.csv")
 daily = load_export_df("temporal_patterns_daily.csv")
@@ -97,7 +98,15 @@ if hourly_plot.empty or daily_plot.empty or monthly_plot.empty:
     st.info("No temporal data found for the selected filters.")
     st.stop()
 
-hourly_view = hourly_plot.groupby("start_hour", as_index=False)["trips"].sum().sort_values("start_hour")
+hourly_plot["start_hour"] = pd.to_numeric(hourly_plot["start_hour"], errors="coerce")
+hourly_plot = hourly_plot.dropna(subset=["start_hour"]).copy()
+hourly_plot["start_hour"] = hourly_plot["start_hour"].astype(int)
+
+hourly_view = (
+    hourly_plot.groupby("start_hour", as_index=False)["trips"].sum().set_index("start_hour").reindex(range(24), fill_value=0).reset_index()
+)
+hourly_view["hour_label"] = hourly_view["start_hour"].map(lambda h: f"{int(h):02d}:00")
+hour_order = [f"{h:02d}:00" for h in range(24)]
 daily_view = daily_plot.groupby(["day_of_week", "day_name"], as_index=False)["trips"].sum().sort_values("day_of_week")
 monthly_view = monthly_plot.groupby(["year", "month", "month_name"], as_index=False)["trips"].sum().sort_values(["year", "month"])
 monthly_view["period"] = monthly_view["year"].astype(str) + "-" + monthly_view["month"].astype(int).astype(str).str.zfill(2)
@@ -116,15 +125,15 @@ with left:
     )
     fig_hourly = px.bar(
         hourly_view,
-        x="start_hour",
+        x="hour_label",
         y="trips",
         title=hourly_title,
-        labels={"start_hour": "Hour", "trips": "Trips"},
+        labels={"hour_label": "Time of day", "trips": "Trips"},
         color="trips",
         color_continuous_scale="Reds",
     )
     fig_hourly.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
-    fig_hourly.update_xaxes(tickmode="linear", dtick=1)
+    fig_hourly.update_xaxes(categoryorder="array", categoryarray=hour_order, tickangle=-45)
     st.plotly_chart(fig_hourly, use_container_width=True)
 
 with right:
@@ -154,7 +163,7 @@ st.plotly_chart(fig_monthly, use_container_width=True)
 
 with st.expander("Show aggregated tables"):
     st.markdown("**Hourly**")
-    st.dataframe(hourly_view, use_container_width=True, hide_index=True)
+    st.dataframe(hourly_view[["hour_label", "trips"]], use_container_width=True, hide_index=True)
     st.markdown("**Daily**")
     st.dataframe(daily_view[["day_name", "trips"]], use_container_width=True, hide_index=True)
     st.markdown("**Monthly**")
