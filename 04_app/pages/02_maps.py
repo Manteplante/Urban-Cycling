@@ -1,4 +1,4 @@
-"""Maps page — interactive station map with city zoom and route overlays."""
+# Maps page — interactive station map with city zoom and route overlays.
 
 import folium
 import pandas as pd

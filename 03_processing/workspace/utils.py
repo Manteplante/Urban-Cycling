@@ -1,33 +1,8 @@
-"""
-03_processing/workspace/utils.py
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Workspace analysis toolkit — mirrors a Databricks utility library.
-
-Import this at the top of any notebook in 03_processing/workspace/:
-
-    from utils import load, load_app_ready, describe, plot_hourly, export_df, export_figure
-
-Data layers
-───────────
-    Bronze  — raw scraped CSVs:           load_bronze("oslo")
-    Silver  — cleaned, partitioned:       load("oslo", 2024)
-    Gold    — star schema:                load_gold("fact_trips_2024")
-
-    # All cities, all years (silver layer):
-    df = load()
-
-    # Single city, single year (silver):
-    df = load("oslo", 2024)
-
-    # Gold fact table joined with dims — use gold.py in the app instead:
-    df = load_gold("fact_trips_2024")
-
-Exports
-───────
-    export_df("my_table", df)         →  gold/notebook_exports/my_table.csv
-    export_figure("my_chart", fig)    →  gold/notebook_exports/my_chart.png
-    # Both are auto-displayed in the Streamlit Insights page (04_insights.py)
-"""
+# 03_processing/workspace/utils.py
+# Workspace analysis toolkit for notebooks in 03_processing/workspace.
+#
+# Supports layer loaders (bronze/silver/gold), export helpers, and common
+# analysis/plot utilities aligned with the app data model.
 
 import sys
 from pathlib import Path
@@ -76,33 +51,27 @@ __all__ = [
 #  Loaders
 # ══════════════════════════════════════════════════════════════════════════════
 
+# All raw bronze CSVs for a city, concatenated.
 def load_bronze(city: str) -> pd.DataFrame:
-    """All raw bronze CSVs for a city, concatenated."""
     return _load_bronze(city)
 
 
+# Cleaned silver data for a city (optionally filtered by year).
 def load_silver(city: str, year: int = None) -> pd.DataFrame:
-    """Cleaned silver data for a city (optionally filtered by year)."""
     return _load_silver(city, year)
 
 
+# Load a gold table by name, e.g. dim_city or fact_trips_2024.
 def load_gold(table: str) -> pd.DataFrame:
-    """Load a gold table by name, e.g. 'dim_city', 'fact_trips_2024'.
-
-    Available tables: dim_city, dim_stations, dim_date, fact_trips_{year}
-    """
     return _load_gold(table)
 
 
+# Load the same denormalised dataset shape used by the Streamlit app.
 def load_app_ready(
     city: str | None = None,
     years: list[int] | None = None,
     months: list[int] | None = None,
 ) -> pd.DataFrame:
-    """Load the same denormalised gold dataset shape used by the Streamlit app.
-
-    This is the easiest way to keep notebook analysis aligned with the app layer.
-    """
     if _app_gold is None:
         raise ImportError(
             "Could not import Streamlit gold catalog. "
@@ -119,21 +88,9 @@ def load_app_ready(
     return query.load()
 
 
+# Primary data loader for workspace analysis.
+# city: oslo|bergen|trondheim|None, year: int|None, layer: silver|gold.
 def load(city: str = None, year: int = None, layer: str = "silver") -> pd.DataFrame:
-    """Primary data loader for workspace analysis.
-
-    Parameters
-    ----------
-    city  : 'oslo' | 'bergen' | 'trondheim' | None  (None = all cities)
-    year  : int | None  (None = all available years)
-    layer : 'silver' (default) or 'gold'
-
-    Examples
-    --------
-    >>> df = load()                          # all cities, all years (silver)
-    >>> df = load("oslo", 2024)              # oslo 2024 (silver)
-    >>> df = load(year=2024, layer="gold")   # gold fact table for 2024
-    """
     if layer == "gold":
         if year is not None:
             return _load_gold(f"fact_trips_{year}")
@@ -162,8 +119,8 @@ def load(city: str = None, year: int = None, layer: str = "silver") -> pd.DataFr
 #  Analysis helpers
 # ══════════════════════════════════════════════════════════════════════════════
 
+# Extended describe: adds null counts, null %, and dtype columns.
 def describe(df: pd.DataFrame) -> pd.DataFrame:
-    """Extended describe: adds null counts, null %, and dtype columns."""
     stats = df.describe(include="all").T
     stats["nulls"]  = df.isnull().sum()
     stats["null_%"] = (df.isnull().mean() * 100).round(2)
@@ -171,25 +128,12 @@ def describe(df: pd.DataFrame) -> pd.DataFrame:
     return stats
 
 
+# Build an ML-ready (X, y) tuple from a silver or gold DataFrame.
+# Adds derived time features from started_at when available.
 def feature_matrix(
     df: pd.DataFrame,
     target: str = "duration_seconds",
 ) -> tuple:
-    """Build an ML-ready (X, y) tuple from a silver or gold DataFrame.
-
-    Derived features added automatically from 'started_at':
-        hour, day_of_week, month, is_weekend
-
-    Parameters
-    ----------
-    df     : silver or gold DataFrame
-    target : column to use as the prediction target
-
-    Returns
-    -------
-    X : pd.DataFrame — numeric feature matrix
-    y : pd.Series    — target values (empty Series if target not in df)
-    """
     df = df.copy()
 
     if "started_at" in df.columns:
@@ -222,8 +166,8 @@ def _ensure_datetime(df: pd.DataFrame, col: str = "started_at") -> pd.DataFrame:
     return df
 
 
+# Bar chart of trip counts by hour (0-23).
 def plot_hourly(df: pd.DataFrame, title: str = "Trips by Hour of Day") -> plt.Figure:
-    """Bar chart of trip counts by hour (0–23)."""
     df = _ensure_datetime(df)
     hourly = (
         df["started_at"].dt.hour
@@ -238,8 +182,8 @@ def plot_hourly(df: pd.DataFrame, title: str = "Trips by Hour of Day") -> plt.Fi
     return fig
 
 
+# Line chart of trip volume per calendar month.
 def plot_monthly(df: pd.DataFrame, title: str = "Monthly Trip Volume") -> plt.Figure:
-    """Line chart of trip volume per calendar month."""
     df = _ensure_datetime(df)
     monthly = df["started_at"].dt.to_period("M").value_counts().sort_index()
     labels  = monthly.index.astype(str)
@@ -254,13 +198,13 @@ def plot_monthly(df: pd.DataFrame, title: str = "Monthly Trip Volume") -> plt.Fi
     return fig
 
 
+# Horizontal bar chart of the top N stations by trip count.
 def plot_top_stations(
     df: pd.DataFrame,
     n: int = 10,
     col: str = "start_station_name",
     title: str = None,
 ) -> plt.Figure:
-    """Horizontal bar chart of the top N stations by trip count."""
     top   = df[col].value_counts().head(n)
     title = title or f"Top {n} Departure Stations"
 
@@ -271,12 +215,12 @@ def plot_top_stations(
     return fig
 
 
+# Histogram of trip durations in minutes, capped at max_minutes.
 def plot_duration_dist(
     df: pd.DataFrame,
     max_minutes: int = 60,
     title: str = "Trip Duration Distribution",
 ) -> plt.Figure:
-    """Histogram of trip durations (in minutes, capped at max_minutes)."""
     if "duration_seconds" not in df.columns:
         raise ValueError("DataFrame must contain a 'duration_seconds' column")
 
@@ -293,11 +237,11 @@ def plot_duration_dist(
     return fig
 
 
+# Bar chart comparing total trip volumes per city.
 def plot_city_comparison(
     df: pd.DataFrame,
     title: str = "Trip Volume by City",
 ) -> plt.Figure:
-    """Bar chart comparing total trip volumes per city."""
     col = "city" if "city" in df.columns else "city_id"
     city_counts = df[col].value_counts().sort_values(ascending=False)
 

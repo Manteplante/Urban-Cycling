@@ -1,63 +1,7 @@
-"""
-services/gold.py — Urban Cycling Gold Layer Catalog
-═══════════════════════════════════════════════════════════════════════════════
-
-This is the single import point for all gold layer data in the Streamlit app.
-Think of it like connecting a Power BI report to a semantic model — you pick
-the table or query you need, all caching and joins are handled for you.
-
-──────────────────────────────────────────────────────────────────────────────
-QUICK START  (in any page or component)
-──────────────────────────────────────────────────────────────────────────────
-
-    from services.gold import gold
-
-    # 1. Raw tables — just like picking a table in Power BI
-    df_trips    = gold.trips()          # all fact_trips (all years)
-    df_stations = gold.stations()       # dim_stations with lat/lon
-    df_dates    = gold.dates()          # dim_date calendar table
-    df_cities   = gold.cities()         # dim_city lookup
-
-    # 2. Fluent filtering — chain as many filters as you like
-    df = (
-        gold.query()
-            .city("Oslo")              # one city
-            .cities(["Oslo","Bergen"]) # or multiple
-            .year(2024)                # one year
-            .years([2023, 2024])       # or multiple
-            .month(7)                  # optional month filter
-            .load()                    # → fully joined, denormalised DataFrame
-    )
-
-    # 3. Convenience one-liners
-    df = gold.for_city("Oslo", year=2024)
-
-    # 4. Schema reference — see what columns come back
-    gold.schema()         # prints column names + dtypes for trips
-
-──────────────────────────────────────────────────────────────────────────────
-COLUMN REFERENCE  (returned by .load() and for_city())
-──────────────────────────────────────────────────────────────────────────────
-    trip_id                 int
-    city_name               str    "Oslo" | "Bergen" | "Trondheim"
-    start_station_id        str
-    start_station_name      str
-    start_lat / start_lon   float
-    end_station_id          str
-    end_station_name        str
-    end_lat / end_lon       float
-    date_id                 int    YYYYMMDD
-    date                    date
-    year                    int
-    month                   int    1–12
-    month_name              str    "January" … "December"
-    day_of_week             int    0=Mon … 6=Sun
-    day_name                str    "Monday" … "Sunday"
-    is_weekend              int    0 | 1
-    quarter                 int    1–4
-    start_hour              int    0–23
-    duration_seconds        float
-"""
+# services/gold.py — Urban Cycling Gold Layer Catalog
+# Single import point for gold-layer access in the Streamlit app.
+# Use gold.query() for joined data, or gold.{trips,stations,dates,cities}()
+# for direct table access.
 
 from __future__ import annotations
 
@@ -71,6 +15,30 @@ _PROJECT_ROOT    = Path(__file__).parents[2]
 _GOLD_PATH       = _PROJECT_ROOT / "02_data" / "gold"
 _FACTS_PATH      = _GOLD_PATH / "facts"
 _DIMENSIONS_PATH = _GOLD_PATH / "dimensions"
+
+_SCHEMA_REFERENCE_LINES = [
+    "trip_id",
+    "city_name",
+    "start_station_id",
+    "start_station_name",
+    "start_lat",
+    "start_lon",
+    "end_station_id",
+    "end_station_name",
+    "end_lat",
+    "end_lon",
+    "date_id",
+    "date",
+    "year",
+    "month",
+    "month_name",
+    "day_of_week",
+    "day_name",
+    "is_weekend",
+    "quarter",
+    "start_hour",
+    "duration_seconds",
+]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -140,7 +108,7 @@ def _top_trip_patterns() -> pd.DataFrame:
 
 @st.cache_data(ttl=3600)
 def _joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
-    """Fully denormalised trips table, filtered and joined once, then cached."""
+    # Fully denormalised trips table, filtered and joined once, then cached.
     facts = _facts(years)
     if facts.empty:
         return pd.DataFrame()
@@ -205,12 +173,7 @@ def _joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
 # ══════════════════════════════════════════════════════════════════════════════
 
 class GoldQuery:
-    """Chainable filter builder for the gold layer.
-
-    Usage::
-
-        df = gold.query().city("Oslo").year(2024).load()
-    """
+    # Chainable filter builder for the gold layer.
 
     def __init__(self) -> None:
         self._city_names: list[str] = []
@@ -220,43 +183,40 @@ class GoldQuery:
     # ── Filter methods ─────────────────────────────────────────────────────────
 
     def city(self, name: str) -> "GoldQuery":
-        """Add a single city filter (case-insensitive)."""
+        # Add a single city filter (case-insensitive).
         self._city_names.append(name)
         return self
 
     def cities(self, names: list[str]) -> "GoldQuery":
-        """Add multiple cities at once."""
+        # Add multiple cities at once.
         self._city_names.extend(names)
         return self
 
     def year(self, y: int) -> "GoldQuery":
-        """Add a single year filter."""
+        # Add a single year filter.
         self._years.append(y)
         return self
 
     def years(self, ys: list[int]) -> "GoldQuery":
-        """Add multiple years at once."""
+        # Add multiple years at once.
         self._years.extend(ys)
         return self
 
     def month(self, m: int) -> "GoldQuery":
-        """Add a single month filter (1–12)."""
+        # Add a single month filter (1-12).
         self._months.append(m)
         return self
 
     def months(self, ms: list[int]) -> "GoldQuery":
-        """Add multiple months at once."""
+        # Add multiple months at once.
         self._months.extend(ms)
         return self
 
     # ── Terminal: execute the query ────────────────────────────────────────────
 
     def load(self) -> pd.DataFrame:
-        """Execute the query and return a denormalised DataFrame.
-
-        All joins are handled automatically and results are cached.
-        Returns an empty DataFrame if no data is found — safe to check
-        with ``df.empty``."""
+        # Execute the query and return a denormalised DataFrame.
+        # Results are cached; empty DataFrame means no matching data.
         # Resolve city_ids from names
         dim_city   = _cities()
         target_ids: tuple[int, ...] = ()
@@ -298,34 +258,27 @@ class GoldQuery:
 # ══════════════════════════════════════════════════════════════════════════════
 
 class _GoldCatalog:
-    """The gold layer catalog.  Import ``gold`` from this module.
-
-    Think of this as the semantic model in Power BI — all the tables are here,
-    cleaned, joined, and cached.  You never touch file paths or ETL logic.
-    """
+    # Gold layer catalog. Import `gold` from this module.
 
     # ── Raw dimension / fact tables ────────────────────────────────────────────
 
     def trips(self, years: list[int] = None) -> pd.DataFrame:
-        """All fact trips, optionally filtered by year(s).
-
-        Returns the raw fact table (no station names or dates joined).
-        Use ``.query().load()`` if you need the full denormalised view.
-        """
+        # All fact trips, optionally filtered by year(s).
+        # Returns the raw fact table without joined station/date columns.
         available = _available_years()
         target    = tuple(sorted(set(years) & set(available))) if years else tuple(available)
         return _facts(target)
 
     def stations(self) -> pd.DataFrame:
-        """Dimension table of all bike stations with lat/lon."""
+        # Dimension table of all bike stations with lat/lon.
         return _stations()
 
     def dates(self) -> pd.DataFrame:
-        """Calendar dimension table (date, year, month, weekday, etc.)."""
+        # Calendar dimension table (date, year, month, weekday, etc.).
         return _dates()
 
     def cities(self) -> pd.DataFrame:
-        """City lookup table (city_id, city_name, display_name, country)."""
+        # City lookup table (city_id, city_name, display_name, country).
         return _cities()
 
     def top_trip_patterns(
@@ -334,7 +287,7 @@ class _GoldCatalog:
         years: list[int] | None = None,
         limit: int = 10,
     ) -> pd.DataFrame:
-        """Precomputed top route patterns for map overlays."""
+        # Precomputed top route patterns for map overlays.
         df = _top_trip_patterns().copy()
         if df.empty:
             return df
@@ -363,12 +316,7 @@ class _GoldCatalog:
     # ── Fluent query builder ──────────────────────────────────────────────────
 
     def query(self) -> GoldQuery:
-        """Start a fluent, chainable query against the gold layer.
-
-        Example::
-
-            df = gold.query().city("Oslo").year(2024).load()
-        """
+        # Start a fluent, chainable query against the gold layer.
         return GoldQuery()
 
     # ── One-liner convenience ──────────────────────────────────────────────────
@@ -379,14 +327,7 @@ class _GoldCatalog:
         year: int = None,
         years: list[int] = None,
     ) -> pd.DataFrame:
-        """One-liner: load fully joined trips for a city (and optionally year/years).
-
-        Examples::
-
-            df = gold.for_city("Oslo")
-            df = gold.for_city("Oslo", year=2024)
-            df = gold.for_city("Bergen", years=[2023, 2024])
-        """
+        # One-liner for fully joined trips for a city and optional year filters.
         q = self.query().city(city)
         if year is not None:
             q = q.year(year)
@@ -397,19 +338,19 @@ class _GoldCatalog:
     # ── Introspection ──────────────────────────────────────────────────────────
 
     def available_years(self) -> list[int]:
-        """Return a sorted list of years that have gold fact data."""
+        # Return sorted years that have gold fact data.
         return _available_years()
 
     def available_cities(self) -> list[str]:
-        """Return a list of city display names (e.g. ['Oslo', 'Bergen', 'Trondheim'])."""
+        # Return city display names (e.g. Oslo, Bergen, Trondheim).
         return _cities()["display_name"].tolist()
 
     def schema(self) -> None:
-        """Print the column reference for the denormalised trips table."""
-        print(__doc__.split("COLUMN REFERENCE")[1].split("═")[0].strip())
+        # Print a column reference for the denormalised trips table.
+        print("\n".join(_SCHEMA_REFERENCE_LINES))
 
     def status(self) -> dict:
-        """Return a summary dict: years available, city count, station count."""
+        # Return summary dict: years available, city count, station count.
         return {
             "years":    self.available_years(),
             "cities":   self.available_cities(),

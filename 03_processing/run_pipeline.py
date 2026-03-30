@@ -1,19 +1,12 @@
-"""
-03_processing/run_pipeline.py  —  Medallion ETL launcher
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Run from the project root:
-
-    python 03_processing/run_pipeline.py            # full pipeline (bronze → gold)
-    python 03_processing/run_pipeline.py --silver   # bronze → silver only
-    python 03_processing/run_pipeline.py --gold     # silver → gold only
-    python 03_processing/run_pipeline.py --top-patterns [--years 2024 2025]
-                                                 # rebuild only top route patterns
-    python 03_processing/run_pipeline.py --status   # show layer status and exit
-
-Typically called automatically by GitHub Actions after the scraper finishes.
-Also useful during local development after manually dropping CSVs into bronze/.
-"""
+# 03_processing/run_pipeline.py — Medallion ETL launcher
+#
+# Run from the project root:
+#     python 03_processing/run_pipeline.py            # full pipeline (bronze -> gold)
+#     python 03_processing/run_pipeline.py --silver   # bronze -> silver only
+#     python 03_processing/run_pipeline.py --gold     # silver -> gold only
+#     python 03_processing/run_pipeline.py --top-patterns [--years 2024 2025]
+#                                                   # rebuild only top route patterns
+#     python 03_processing/run_pipeline.py --status   # show layer status and exit
 
 import argparse
 import sys

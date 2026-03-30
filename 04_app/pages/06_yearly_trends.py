@@ -1,4 +1,4 @@
-"""Yearly trends page — uses notebook export yearly_trends_city_year.csv."""
+# Yearly trends page — uses notebook export yearly_trends_city_year.csv.
 
 import pandas as pd
 import plotly.express as px

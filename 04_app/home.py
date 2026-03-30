@@ -1,8 +1,6 @@
-"""
-Urban Cycling Analytics — Landing Page
-Run from the 04_app/ directory:
-    streamlit run home.py
-"""
+# Urban Cycling Analytics — Landing Page
+# Run from the 04_app/ directory:
+#     streamlit run home.py
 
 import pandas as pd
 import streamlit as st

@@ -1,11 +1,11 @@
-"""KPI metric components for the Urban Cycling dashboard."""
+# KPI metric components for the Urban Cycling dashboard.
 
 import streamlit as st
 import pandas as pd
 
 
+# Four-column KPI row: trips, stations, avg duration, cities.
 def headline_metrics(df: pd.DataFrame, n_cities_override: int | None = None) -> None:
-    """Four-column KPI row: trips, stations, avg duration, cities."""
     if df.empty:
         st.info(
             "No data loaded yet. "
@@ -31,8 +31,8 @@ def headline_metrics(df: pd.DataFrame, n_cities_override: int | None = None) -> 
     c4.metric("Cities",          n_cities)
 
 
+# Green success bar when data is present, yellow warning when missing.
 def data_status_banner() -> None:
-    """Green success bar when data is present, yellow warning when missing."""
     from services.gold import gold
     years = gold.available_years()
     if years:

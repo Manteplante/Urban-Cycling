@@ -1,4 +1,4 @@
-"""Top routes and stations page driven by notebook exports."""
+# Top routes and stations page driven by notebook exports.
 
 import pandas as pd
 import plotly.express as px

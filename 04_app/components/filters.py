@@ -1,16 +1,7 @@
-"""
-Shared sidebar filter widgets.
-
-Each function renders widgets in the sidebar and returns a pre-seeded
-GoldQuery object.  Call .load() on it to get the DataFrame:
-
-    from components.filters import sidebar_filters
-
-    query = sidebar_filters(key_prefix="maps")
-    df    = query.load()
-
-That's it.  No city IDs, no path logic, no cache keys to manage.
-"""
+# Shared sidebar filter widgets.
+#
+# Each function renders widgets in the sidebar and returns a pre-seeded
+# GoldQuery object. Call .load() on it to get the DataFrame.
 
 from datetime import datetime
 
@@ -18,8 +9,8 @@ import streamlit as st
 from services.gold import gold, GoldQuery
 
 
+# Default to previous calendar year when available, else latest available year.
 def default_year_selection(all_years: list[int]) -> list[int]:
-    """Default to previous calendar year when available, else latest available year."""
     if not all_years:
         return []
 
@@ -29,22 +20,14 @@ def default_year_selection(all_years: list[int]) -> list[int]:
     return [max(all_years)]
 
 
+# Render city, year, and optional month filters in the sidebar.
+# Returns a GoldQuery pre-seeded with the user's selections.
 def sidebar_filters(
     key_prefix: str = "",
     include_city: bool = True,
     default_cities: list[str] | None = None,
     default_years: list[int] | None = None,
 ) -> GoldQuery:
-    """Render city, year, and optional month filters in the sidebar.
-
-    Returns a GoldQuery pre-seeded with the user's selections.
-    Call .load() to execute and get the denormalised DataFrame.
-
-    Example::
-
-        query = sidebar_filters(key_prefix="analysis")
-        df    = query.load()
-    """
     all_cities = gold.available_cities() or ["Oslo", "Bergen", "Trondheim"]
     all_years  = gold.available_years()  or list(range(2020, 2026))
 
@@ -103,11 +86,9 @@ def sidebar_filters(
 
 
 # ── Backwards-compatible shim (used by existing pages) ────────────────────────
+# Legacy helper. Prefer sidebar_filters() for new pages.
+# Returns (selected_cities: list[str], selected_years: tuple[int]).
 def city_year_filters(key_prefix: str = "") -> tuple:
-    """Legacy helper — prefer sidebar_filters() for new pages.
-
-    Returns (selected_cities: list[str], selected_years: tuple[int]).
-    """
     all_cities = gold.available_cities() or ["Oslo", "Bergen", "Trondheim"]
     all_years  = gold.available_years()  or list(range(2020, 2026))
 

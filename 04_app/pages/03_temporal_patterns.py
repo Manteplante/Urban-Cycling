@@ -1,4 +1,4 @@
-"""Temporal patterns page driven by notebook exports."""
+# Temporal patterns page driven by notebook exports.
 
 import pandas as pd
 import plotly.express as px

@@ -1,38 +1,13 @@
-"""
-Medallion ETL pipeline — Urban Cycling
-═══════════════════════════════════════════════════════════════════════════════
-
-  BRONZE  (02_data/bronze/{city}/*.csv)
-      Raw scraped CSVs exactly as they arrive from the scraper.
-      Never modified — single source of truth.
-
-  SILVER  (02_data/silver/{city}/{year}.csv)
-      One file per city × year.
-      Standardised column names, dtypes cleaned, city_id added.
-      This is what you load in notebooks for exploratory analysis.
-
-  GOLD    (02_data/gold/)
-      Star schema tables consumed by the Streamlit app and ML pipelines.
-
-      dimensions/
-          dim_city.csv        city_id, city_name, display_name, country
-          dim_stations.csv    station_id, station_name, latitude, longitude, city_id
-          dim_date.csv        date_id (YYYYMMDD), date, year, month, month_name,
-                              day, day_of_week, day_name, is_weekend, quarter
-      facts/
-          fact_trips_{year}.csv
-                              trip_id, city_id, start_station_id, end_station_id,
-                              date_id, start_hour, duration_seconds
-      notebook_exports/
-          *.csv  *.png        Artefacts saved by notebooks via notebook_bridge.py
-
-═══════════════════════════════════════════════════════════════════════════════
-
-Usage (run from project root):
-    python 03_processing/transform.py              # full pipeline
-    python 03_processing/transform.py --silver     # bronze → silver only
-    python 03_processing/transform.py --gold       # silver → gold only
-"""
+# Medallion ETL pipeline — Urban Cycling
+#
+# BRONZE: raw scraped CSVs under 02_data/bronze/{city}/
+# SILVER: cleaned and partitioned CSVs under 02_data/silver/{city}/{year}.csv
+# GOLD: star-schema dimensions/facts plus notebook exports under 02_data/gold/
+#
+# Usage:
+#     python 03_processing/transform.py              # full pipeline
+#     python 03_processing/transform.py --silver     # bronze -> silver only
+#     python 03_processing/transform.py --gold       # silver -> gold only
 
 import argparse
 import hashlib
@@ -183,8 +158,8 @@ def _ensure_station_ids(df: pd.DataFrame, fallback_city: str | None = None) -> p
     return result
 
 
+# Rename columns to canonical names using the alias map.
 def _normalise_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Rename columns to canonical names using the alias map."""
     lower_cols = {c.lower(): c for c in df.columns}
     rename = {}
     for canonical, aliases in _COLUMN_ALIASES.items():
@@ -222,8 +197,8 @@ def _read_bronze(city: str) -> pd.DataFrame:
     return combined
 
 
+# Stage 1: Read bronze CSVs, standardise, partition by city + year -> silver.
 def run_bronze_to_silver() -> None:
-    """Stage 1: Read bronze CSVs, standardise, partition by city + year → silver."""
     print("\n[Stage 1]  Bronze → Silver")
 
     SILVER_PATH.mkdir(parents=True, exist_ok=True)
@@ -262,8 +237,8 @@ def run_bronze_to_silver() -> None:
 #  STAGE 2 — Silver  →  Gold
 # ══════════════════════════════════════════════════════════════════════════════
 
+# Combine all silver CSVs into one DataFrame.
 def _load_all_silver() -> pd.DataFrame:
-    """Combine all silver CSVs into one DataFrame."""
     frames = []
     for city in CITIES:
         city_silver = SILVER_PATH / city
@@ -335,8 +310,8 @@ def _build_dim_date(df: pd.DataFrame) -> pd.DataFrame:
     })
 
 
+# Return {year: DataFrame} for the fact_trips tables.
 def _build_fact_trips(df: pd.DataFrame) -> dict:
-    """Return {year: DataFrame} for the fact_trips tables."""
     out = _ensure_station_ids(df)
     out["date_id"]           = out["started_at"].dt.strftime("%Y%m%d").astype(int)
     out["start_hour"]        = out["started_at"].dt.hour
@@ -361,8 +336,8 @@ def _build_fact_trips(df: pd.DataFrame) -> dict:
     }
 
 
+# Build top N intra-city station-to-station route patterns per city/year.
 def _build_fact_top_trip_patterns(df: pd.DataFrame, n: int = 10, years: list[int] | None = None) -> pd.DataFrame:
-    """Build top N intra-city station-to-station route patterns per city/year."""
     out = _ensure_station_ids(df)
 
     required = [
@@ -494,8 +469,8 @@ def _build_fact_top_trip_patterns(df: pd.DataFrame, n: int = 10, years: list[int
     )
 
 
+# Stage 2: Read all silver CSVs -> build star schema -> write gold.
 def run_silver_to_gold() -> None:
-    """Stage 2: Read all silver CSVs → build star schema → write gold."""
     print("\n[Stage 2]  Silver → Gold")
 
     for path in [FACTS_PATH, DIMENSIONS_PATH, NOTEBOOK_EXPORTS_PATH]:
@@ -555,8 +530,8 @@ def run_etl(silver: bool = True, gold: bool = True) -> None:
     print("\n  Done.\n")
 
 
+# Incremental mode: rebuild only fact_top_trip_patterns.csv from silver.
 def run_gold_top_patterns_only(years: list[int] | None = None) -> None:
-    """Incremental mode: rebuild only fact_top_trip_patterns.csv from silver."""
     print("\n[Stage 2b]  Silver → Gold (top patterns only)")
     FACTS_PATH.mkdir(parents=True, exist_ok=True)
 

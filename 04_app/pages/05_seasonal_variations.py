@@ -1,4 +1,4 @@
-"""Seasonal variations page — uses notebook export seasonal_trends_city_year.csv."""
+# Seasonal variations page — uses notebook export seasonal_trends_city_year.csv.
 
 import pandas as pd
 import plotly.express as px

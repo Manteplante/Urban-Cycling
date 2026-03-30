@@ -1,4 +1,4 @@
-"""Work-trips route map (rush-hour windows)."""
+# Work-trips route map (rush-hour windows).
 
 import folium
 import pandas as pd
