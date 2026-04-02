@@ -5,16 +5,29 @@
 
 from __future__ import annotations
 
+import os
 import streamlit as st
 import pandas as pd
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 _PROJECT_ROOT    = Path(__file__).parents[2]
-_GOLD_PATH       = _PROJECT_ROOT / "02_data" / "gold"
-_FACTS_PATH      = _GOLD_PATH / "facts"
-_DIMENSIONS_PATH = _GOLD_PATH / "dimensions"
+load_dotenv(_PROJECT_ROOT / ".env")
+
+
+def _resolve_env_path(var_name: str, default_relative: str) -> Path:
+    raw = (os.getenv(var_name) or default_relative).strip()
+    candidate = Path(raw).expanduser()
+    if not candidate.is_absolute():
+        candidate = _PROJECT_ROOT / candidate
+    return candidate.resolve()
+
+
+_GOLD_PATH       = _resolve_env_path("GOLD_PATH", "02_data/gold")
+_FACTS_PATH      = _resolve_env_path("FACTS_PATH", "02_data/gold/facts")
+_DIMENSIONS_PATH = _resolve_env_path("DIMENSIONS_PATH", "02_data/gold/dimensions")
 
 _SCHEMA_REFERENCE_LINES = [
     "trip_id",

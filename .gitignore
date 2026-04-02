@@ -1,0 +1,4 @@
+# Local environment files (keep secrets and machine-specific paths out of git)
+.env
+.env.*
+!.env.example

@@ -8,19 +8,36 @@
 #                             Also contains: gold/notebook_exports/ for charts
 #                             and DataFrames produced in Jupyter notebooks
 # ──────────────────────────────────────────────────────────────────────────────
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).parents[1]
 
+# Load repository-level environment variables once for all pipeline modules.
+load_dotenv(PROJECT_ROOT / ".env")
+
+
+def _resolve_env_path(var_name: str, default_relative: str) -> Path:
+	raw = (os.getenv(var_name) or default_relative).strip()
+	candidate = Path(raw).expanduser()
+	if not candidate.is_absolute():
+		candidate = PROJECT_ROOT / candidate
+	return candidate.resolve()
+
 # Medallion layers
-BRONZE_PATH = PROJECT_ROOT / "02_data" / "bronze"
-SILVER_PATH = PROJECT_ROOT / "02_data" / "silver"
-GOLD_PATH   = PROJECT_ROOT / "02_data" / "gold"
+BRONZE_PATH = _resolve_env_path("BRONZE_PATH", "02_data/bronze")
+SILVER_PATH = _resolve_env_path("SILVER_PATH", "02_data/silver")
+GOLD_PATH = _resolve_env_path("GOLD_PATH", "02_data/gold")
 
 # Gold sub-directories
-FACTS_PATH            = GOLD_PATH / "facts"
-DIMENSIONS_PATH       = GOLD_PATH / "dimensions"
-NOTEBOOK_EXPORTS_PATH = GOLD_PATH / "notebook_exports"
+FACTS_PATH = _resolve_env_path("FACTS_PATH", str(Path("02_data") / "gold" / "facts"))
+DIMENSIONS_PATH = _resolve_env_path("DIMENSIONS_PATH", str(Path("02_data") / "gold" / "dimensions"))
+NOTEBOOK_EXPORTS_PATH = _resolve_env_path(
+	"NOTEBOOK_EXPORTS_PATH",
+	str(Path("02_data") / "gold" / "notebook_exports"),
+)
 
 # City constants
 CITIES          = ["oslo", "bergen", "trondheim"]

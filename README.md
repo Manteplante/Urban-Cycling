@@ -96,7 +96,22 @@ source bysykkel/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2 — Add CSV data to bronze
+### 2 — Configure local paths
+
+Create your local `.env` file from the committed template:
+
+```bash
+# Windows (PowerShell)
+Copy-Item .env.example .env
+
+# macOS / Linux
+cp .env.example .env
+```
+
+By default, paths target the repository `02_data/` folders. Only edit `.env`
+if your data lives elsewhere.
+
+### 3 — Add CSV data to bronze
 
 Drop raw CSV files from any of the three city portals into the matching bronze folder:
 
@@ -113,7 +128,7 @@ cd 01_scraper
 python scraper_main.py
 ```
 
-### 3 — Run the ETL pipeline
+### 4 — Run the ETL pipeline
 
 ```bash
 # Full pipeline: bronze → silver → gold
@@ -145,7 +160,7 @@ Example `--status` output:
   Gold    exports       4 notebook export(s)
 ```
 
-### 4 — Launch the Streamlit app
+### 5 — Launch the Streamlit app
 
 ```bash
 cd 04_app

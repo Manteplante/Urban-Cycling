@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-FACTS_ROOT = PROJECT_ROOT / "02_data" / "gold" / "facts"
+sys.path.insert(0, str(PROJECT_ROOT / "03_processing"))
+
+from config import FACTS_PATH
+
+FACTS_ROOT = FACTS_PATH
 
 REQUIRED_COLS = {
     "rank",
@@ -29,7 +34,7 @@ REQUIRED_COLS = {
 def check_top_trip_patterns() -> int:
     path = FACTS_ROOT / "fact_top_trip_patterns.csv"
     if not path.exists():
-        print("ERROR: Missing 02_data/gold/facts/fact_top_trip_patterns.csv")
+        print(f"ERROR: Missing {path}")
         return 1
 
     df = pd.read_csv(path)

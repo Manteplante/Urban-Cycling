@@ -1,5 +1,6 @@
 import os
 import datetime
+from pathlib import Path
 from dotenv import load_dotenv
 import requests
 from enabler import fetch_html, parse_html
@@ -57,8 +58,23 @@ def save_to_file(csv_files, folder_path):
         saved_files.append(file_path)
     return saved_files
 
-# Load environment variables from .env
-load_dotenv()
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(PROJECT_ROOT / ".env")
+
+
+def _resolve_env_path(*keys, default_relative):
+    for key in keys:
+        value = os.getenv(key)
+        if value and value.strip():
+            candidate = Path(value.strip()).expanduser()
+            if not candidate.is_absolute():
+                candidate = PROJECT_ROOT / candidate
+            return str(candidate.resolve())
+
+    fallback = Path(default_relative)
+    if not fallback.is_absolute():
+        fallback = PROJECT_ROOT / fallback
+    return str(fallback.resolve())
 
 # Process the monthly update for the previous month
 
@@ -75,16 +91,13 @@ def process_monthly_update():
 
     # Load folder paths from environment variables
     folder_paths = {
-        "Oslo": os.getenv("OSLO"),
-        "Bergen": os.getenv("BERGEN"),
-        "Trondheim": os.getenv("TRONDHEIM")
+        "Oslo": _resolve_env_path("BRONZE_OSLO_PATH", "OSLO", default_relative="02_data/bronze/oslo"),
+        "Bergen": _resolve_env_path("BRONZE_BERGEN_PATH", "BERGEN", default_relative="02_data/bronze/bergen"),
+        "Trondheim": _resolve_env_path("BRONZE_TRONDHEIM_PATH", "TRONDHEIM", default_relative="02_data/bronze/trondheim"),
     }
     
     # Check that all paths exist, create if not
     for city, path in folder_paths.items():
-        if not path:
-            print(f"Error: Missing path for {city} in environment variables")
-            return []
         os.makedirs(path, exist_ok=True)
     
     # Scrape and save for each city
