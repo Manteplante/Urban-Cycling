@@ -77,12 +77,12 @@ fig = px.bar(
 fig.update_layout(plot_bgcolor="white", legend_title_text="City")
 fig.update_xaxes(type="category")
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 # ── Optional table ────────────────────────────────────────────────────────────
 with st.expander("Show yearly trend data"):
     st.dataframe(
         plot_df.sort_values(["city_name", "year"]),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )

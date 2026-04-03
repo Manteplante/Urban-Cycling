@@ -289,6 +289,6 @@ with st.expander("Selected station details"):
                 "total_trips",
             ]
         ],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )

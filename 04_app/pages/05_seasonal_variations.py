@@ -94,12 +94,12 @@ else:
     )
     fig.update_layout(height=520, legend_title_text="Season")
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 # ── Table output ──────────────────────────────────────────────────────────────
 st.subheader("Seasonal data")
 st.dataframe(
     plot_df.sort_values(["city_name", "year", "season"]),
-    use_container_width=True,
+    width="stretch",
     hide_index=True,
 )

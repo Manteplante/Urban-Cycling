@@ -146,20 +146,20 @@ def top_trip_patterns() -> pd.DataFrame:
 @cache_data(ttl=3600)
 def joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
     # Fully denormalised trips table, filtered and joined once, then cached.
-    facts = facts(years)
-    if facts.empty:
+    facts_df = facts(years)
+    if facts_df.empty:
         return pd.DataFrame()
 
     if city_ids:
-        facts = facts[facts["city_id"].isin(city_ids)]
-    if facts.empty:
+        facts_df = facts_df[facts_df["city_id"].isin(city_ids)]
+    if facts_df.empty:
         return pd.DataFrame()
 
     dim_city     = cities()
     dim_stations = stations()
     dim_date     = dates()
 
-    df = facts.copy()
+    df = facts_df.copy()
 
     # city name
     df = df.merge(

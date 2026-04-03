@@ -208,4 +208,4 @@ top = (
         "total_trips":  "Total Trips",
     })
 )
-st.dataframe(top, use_container_width=True, hide_index=True)
+st.dataframe(top, width="stretch", hide_index=True)

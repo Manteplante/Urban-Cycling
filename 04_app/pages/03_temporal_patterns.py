@@ -143,7 +143,7 @@ with left:
     )
     fig_hourly.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
     fig_hourly.update_xaxes(categoryorder="array", categoryarray=hour_order, tickangle=-45)
-    st.plotly_chart(fig_hourly, use_container_width=True)
+    st.plotly_chart(fig_hourly, width="stretch")
 
 with right:
     fig_daily = px.bar(
@@ -156,7 +156,7 @@ with right:
         color_continuous_scale="Blues",
     )
     fig_daily.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
-    st.plotly_chart(fig_daily, use_container_width=True)
+    st.plotly_chart(fig_daily, width="stretch")
 
 fig_monthly = px.line(
     monthly_view,
@@ -168,13 +168,13 @@ fig_monthly = px.line(
 )
 fig_monthly.update_layout(plot_bgcolor="white")
 fig_monthly.update_xaxes(tickangle=-45)
-st.plotly_chart(fig_monthly, use_container_width=True)
+st.plotly_chart(fig_monthly, width="stretch")
 
 # ── Optional table view ───────────────────────────────────────────────────────
 with st.expander("Show aggregated tables"):
     st.markdown("**Hourly**")
-    st.dataframe(hourly_view[["hour_label", "trips"]], use_container_width=True, hide_index=True)
+    st.dataframe(hourly_view[["hour_label", "trips"]], width="stretch", hide_index=True)
     st.markdown("**Daily**")
-    st.dataframe(daily_view[["day_name", "trips"]], use_container_width=True, hide_index=True)
+    st.dataframe(daily_view[["day_name", "trips"]], width="stretch", hide_index=True)
     st.markdown("**Monthly**")
-    st.dataframe(monthly_view[["year", "month_name", "trips"]], use_container_width=True, hide_index=True)
+    st.dataframe(monthly_view[["year", "month_name", "trips"]], width="stretch", hide_index=True)

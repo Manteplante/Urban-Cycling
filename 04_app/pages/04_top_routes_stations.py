@@ -124,7 +124,7 @@ fig_routes = px.bar(
     color_continuous_scale="Oranges",
 )
 fig_routes.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
-st.plotly_chart(fig_routes, use_container_width=True)
+st.plotly_chart(fig_routes, width="stretch")
 
 start_col, end_col = st.columns(2)
 
@@ -140,7 +140,7 @@ with start_col:
         color_continuous_scale="Tealgrn",
     )
     fig_start_stations.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
-    st.plotly_chart(fig_start_stations, use_container_width=True)
+    st.plotly_chart(fig_start_stations, width="stretch")
 
 with end_col:
     fig_end_stations = px.bar(
@@ -154,13 +154,13 @@ with end_col:
         color_continuous_scale="Blues",
     )
     fig_end_stations.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
-    st.plotly_chart(fig_end_stations, use_container_width=True)
+    st.plotly_chart(fig_end_stations, width="stretch")
 
 # ── Optional detail tables ────────────────────────────────────────────────────
 with st.expander("Show detail tables"):
     st.markdown("**Routes**")
-    st.dataframe(routes_view, use_container_width=True, hide_index=True)
+    st.dataframe(routes_view, width="stretch", hide_index=True)
     st.markdown("**Start stations**")
-    st.dataframe(start_stations_view, use_container_width=True, hide_index=True)
+    st.dataframe(start_stations_view, width="stretch", hide_index=True)
     st.markdown("**End stations**")
-    st.dataframe(end_stations_view, use_container_width=True, hide_index=True)
+    st.dataframe(end_stations_view, width="stretch", hide_index=True)

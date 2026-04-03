@@ -263,6 +263,6 @@ with st.expander("Selected route details"):
                 "median_duration_minutes",
             ]
         ],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )

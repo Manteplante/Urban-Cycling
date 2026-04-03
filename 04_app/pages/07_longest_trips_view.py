@@ -301,7 +301,7 @@ with st.expander("Selected route details"):
             "avg_duration_minutes",
             "median_duration_minutes",
         ]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -316,6 +316,6 @@ with st.expander("Top 20 long-trip routes"):
             "avg_duration_minutes",
             "median_duration_minutes",
         ]].head(20),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
