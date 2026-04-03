@@ -6,11 +6,15 @@
 from __future__ import annotations
 
 import os
-import streamlit as st
 import pandas as pd
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
+
+try:
+    import streamlit as st
+except Exception:
+    st = None
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 _PROJECT_ROOT    = Path(__file__).parents[2]
@@ -28,6 +32,25 @@ def _resolve_env_path(var_name: str, default_relative: str) -> Path:
 _GOLD_PATH       = _resolve_env_path("GOLD_PATH", "02_data/gold")
 _FACTS_PATH      = _resolve_env_path("FACTS_PATH", "02_data/gold/facts")
 _DIMENSIONS_PATH = _resolve_env_path("DIMENSIONS_PATH", "02_data/gold/dimensions")
+
+
+def _cache_data(ttl: int = 3600):
+    # Notebook and script contexts should not depend on Streamlit runtime state.
+    if st is None:
+        def _decorator(func):
+            return func
+        return _decorator
+
+    try:
+        import streamlit.runtime as st_runtime
+        if not st_runtime.exists():
+            def _decorator(func):
+                return func
+            return _decorator
+    except Exception:
+        pass
+
+    return st.cache_data(ttl=ttl)
 
 _SCHEMA_REFERENCE_LINES = [
     "trip_id",
@@ -58,7 +81,7 @@ _SCHEMA_REFERENCE_LINES = [
 #  Low-level cached loaders  (internal — use the catalog instead)
 # ══════════════════════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=3600)
+@_cache_data(ttl=3600)
 def _cities() -> pd.DataFrame:
     path = _DIMENSIONS_PATH / "dim_city.csv"
     if not path.exists():
@@ -71,7 +94,7 @@ def _cities() -> pd.DataFrame:
     return pd.read_csv(path)
 
 
-@st.cache_data(ttl=3600)
+@_cache_data(ttl=3600)
 def _stations() -> pd.DataFrame:
     path = _DIMENSIONS_PATH / "dim_stations.csv"
     if not path.exists():
@@ -79,7 +102,7 @@ def _stations() -> pd.DataFrame:
     return pd.read_csv(path)
 
 
-@st.cache_data(ttl=3600)
+@_cache_data(ttl=3600)
 def _dates() -> pd.DataFrame:
     path = _DIMENSIONS_PATH / "dim_date.csv"
     if not path.exists():
@@ -87,7 +110,7 @@ def _dates() -> pd.DataFrame:
     return pd.read_csv(path, parse_dates=["date"])
 
 
-@st.cache_data(ttl=3600)
+@_cache_data(ttl=3600)
 def _available_years() -> list[int]:
     if not _FACTS_PATH.exists():
         return []
@@ -97,7 +120,7 @@ def _available_years() -> list[int]:
     )
 
 
-@st.cache_data(ttl=3600)
+@_cache_data(ttl=3600)
 def _facts(years: tuple[int, ...]) -> pd.DataFrame:
     if not _FACTS_PATH.exists():
         return pd.DataFrame()
@@ -111,7 +134,7 @@ def _facts(years: tuple[int, ...]) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-@st.cache_data(ttl=3600)
+@_cache_data(ttl=3600)
 def _top_trip_patterns() -> pd.DataFrame:
     path = _FACTS_PATH / "fact_top_trip_patterns.csv"
     if not path.exists():
@@ -119,7 +142,7 @@ def _top_trip_patterns() -> pd.DataFrame:
     return pd.read_csv(path)
 
 
-@st.cache_data(ttl=3600)
+@_cache_data(ttl=3600)
 def _joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
     # Fully denormalised trips table, filtered and joined once, then cached.
     facts = _facts(years)
