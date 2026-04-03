@@ -94,7 +94,7 @@ def list_silver_years(city: str) -> list:
 def export_df(name: str, df: pd.DataFrame) -> Path:
     out = NOTEBOOK_EXPORTS_PATH / f"{name}.csv"
     df.to_csv(out, index=False)
-    print(f"[bridge] Exported DataFrame → {out}")
+    print(f"[bridge] Exported DataFrame: {out.name} (target: NOTEBOOK_EXPORTS_PATH)")
     return out
 
 
@@ -103,7 +103,7 @@ def export_df(name: str, df: pd.DataFrame) -> Path:
 def export_figure(name: str, fig, dpi: int = 150) -> Path:
     out = NOTEBOOK_EXPORTS_PATH / f"{name}.png"
     fig.savefig(out, dpi=dpi, bbox_inches="tight")
-    print(f"[bridge] Exported figure  → {out}")
+    print(f"[bridge] Exported figure: {out.name} (target: NOTEBOOK_EXPORTS_PATH)")
     return out
 
 

@@ -16,15 +16,12 @@ At the top of a notebook:
 
 ```python
 import sys; sys.path.insert(0, "..")
-from utils import load, load_app_ready, export_df, export_figure
+from utils import load_app_ready, export_df
 ```
 
 Common patterns:
 
 ```python
-# Silver (EDA / feature work)
-df_silver = load("oslo", 2024)
-
 # App-ready denormalized gold (same shape used in Streamlit)
 df_app = load_app_ready(city="Oslo", years=[2024], months=[6, 7, 8])
 ```
@@ -38,7 +35,6 @@ When exporting notebook outputs for Streamlit insights:
 
 ```python
 export_df("oslo_summer_station_summary", df_summary)
-export_figure("oslo_summer_hourly_profile", fig)
 ```
 
 ## 4) Streamlit reads from gold only
