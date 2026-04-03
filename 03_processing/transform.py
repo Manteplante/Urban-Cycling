@@ -50,13 +50,13 @@ _COLUMN_ALIASES = {
 }
 
 
-def _slugify(value: object) -> str:
+def slugify(value: object) -> str:
     text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
     text = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
     return text or "unknown"
 
 
-def _normalise_station_ref(station_id: object) -> str:
+def normalise_station_ref(station_id: object) -> str:
     if pd.isna(station_id):
         return ""
     text = str(station_id).strip()
@@ -65,7 +65,7 @@ def _normalise_station_ref(station_id: object) -> str:
     return text.lower()
 
 
-def _normalise_coord(value: object) -> str:
+def normalise_coord(value: object) -> str:
     if pd.isna(value):
         return ""
     try:
@@ -74,7 +74,7 @@ def _normalise_coord(value: object) -> str:
         return ""
 
 
-def _city_key(value: object, fallback: str | None = None) -> str:
+def city_key(value: object, fallback: str | None = None) -> str:
     if pd.isna(value):
         return fallback or "unknown"
 
@@ -93,17 +93,17 @@ def _city_key(value: object, fallback: str | None = None) -> str:
     return fallback or text
 
 
-def _qualify_station_id(
+def qualify_station_id(
     city_key: str,
     station_name: object,
     station_id: object,
     latitude: object,
     longitude: object,
 ) -> str:
-    station_ref = _normalise_station_ref(station_id)
-    station_name_slug = _slugify(station_name)
-    lat_key = _normalise_coord(latitude)
-    lon_key = _normalise_coord(longitude)
+    station_ref = normalise_station_ref(station_id)
+    station_name_slug = slugify(station_name)
+    lat_key = normalise_coord(latitude)
+    lon_key = normalise_coord(longitude)
 
     if station_ref:
         canonical = f"{city_key}|id|{station_ref}"
@@ -114,10 +114,10 @@ def _qualify_station_id(
     return f"stn_{digest}"
 
 
-def _ensure_station_ids(df: pd.DataFrame, fallback_city: str | None = None) -> pd.DataFrame:
+def ensure_station_ids(df: pd.DataFrame, fallback_city: str | None = None) -> pd.DataFrame:
     result = df.copy()
     city_keys = [
-        _city_key(value, fallback=fallback_city)
+        city_key(value, fallback=fallback_city)
         for value in result.get("city_id", pd.Series(index=result.index, dtype=object))
     ]
 
@@ -133,7 +133,7 @@ def _ensure_station_ids(df: pd.DataFrame, fallback_city: str | None = None) -> p
 
     if "start_station_name" in result.columns:
         result["start_station_id"] = [
-            _qualify_station_id(city_name, station_name, station_id, latitude, longitude)
+            qualify_station_id(city_name, station_name, station_id, latitude, longitude)
             for city_name, station_name, station_id, latitude, longitude in zip(
                 city_keys,
                 result["start_station_name"],
@@ -145,7 +145,7 @@ def _ensure_station_ids(df: pd.DataFrame, fallback_city: str | None = None) -> p
 
     if "end_station_name" in result.columns:
         result["end_station_id"] = [
-            _qualify_station_id(city_name, station_name, station_id, latitude, longitude)
+            qualify_station_id(city_name, station_name, station_id, latitude, longitude)
             for city_name, station_name, station_id, latitude, longitude in zip(
                 city_keys,
                 result["end_station_name"],
@@ -159,7 +159,7 @@ def _ensure_station_ids(df: pd.DataFrame, fallback_city: str | None = None) -> p
 
 
 # Rename columns to canonical names using the alias map.
-def _normalise_columns(df: pd.DataFrame) -> pd.DataFrame:
+def normalise_columns(df: pd.DataFrame) -> pd.DataFrame:
     lower_cols = {c.lower(): c for c in df.columns}
     rename = {}
     for canonical, aliases in _COLUMN_ALIASES.items():
@@ -174,7 +174,7 @@ def _normalise_columns(df: pd.DataFrame) -> pd.DataFrame:
 #  STAGE 1 — Bronze  →  Silver
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _read_bronze(city: str) -> pd.DataFrame:
+def read_bronze(city: str) -> pd.DataFrame:
     city_path = BRONZE_PATH / city
     if not city_path.exists():
         print(f"  [skip] Bronze folder not found: {city_path}")
@@ -205,12 +205,12 @@ def run_bronze_to_silver() -> None:
     total_written = 0
 
     for city in CITIES:
-        raw = _read_bronze(city)
+        raw = read_bronze(city)
         if raw.empty:
             continue
 
-        df = _normalise_columns(raw)
-        df = _ensure_station_ids(df, fallback_city=city)
+        df = normalise_columns(raw)
+        df = ensure_station_ids(df, fallback_city=city)
         df["city_id"] = CITY_ID_MAP[city]
 
         if "started_at" not in df.columns:
@@ -238,7 +238,7 @@ def run_bronze_to_silver() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 # Combine all silver CSVs into one DataFrame.
-def _load_all_silver() -> pd.DataFrame:
+def load_all_silver() -> pd.DataFrame:
     frames = []
     for city in CITIES:
         city_silver = SILVER_PATH / city
@@ -246,8 +246,8 @@ def _load_all_silver() -> pd.DataFrame:
             continue
         for csv_file in sorted(city_silver.glob("*.csv")):
             df = pd.read_csv(csv_file, low_memory=False)
-            df = _normalise_columns(df)
-            df = _ensure_station_ids(df, fallback_city=city)
+            df = normalise_columns(df)
+            df = ensure_station_ids(df, fallback_city=city)
             df["city_id"] = CITY_ID_MAP[city]
             df["_source_year"] = int(csv_file.stem)
             frames.append(df)
@@ -260,7 +260,7 @@ def _load_all_silver() -> pd.DataFrame:
     return combined
 
 
-def _build_dim_city() -> pd.DataFrame:
+def build_dim_city() -> pd.DataFrame:
     return pd.DataFrame({
         "city_id":      [1,        2,         3],
         "city_name":    ["oslo",   "bergen",  "trondheim"],
@@ -269,8 +269,8 @@ def _build_dim_city() -> pd.DataFrame:
     })
 
 
-def _build_dim_stations(df: pd.DataFrame) -> pd.DataFrame:
-    df = _ensure_station_ids(df)
+def build_dim_stations(df: pd.DataFrame) -> pd.DataFrame:
+    df = ensure_station_ids(df)
     start = df[["start_station_id","start_station_name",
                 "start_station_latitude","start_station_longitude","city_id"]].copy()
     start.columns = ["station_id","station_name","latitude","longitude","city_id"]
@@ -292,7 +292,7 @@ def _build_dim_stations(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def _build_dim_date(df: pd.DataFrame) -> pd.DataFrame:
+def build_dim_date(df: pd.DataFrame) -> pd.DataFrame:
     dates = pd.DatetimeIndex(
         sorted(df["started_at"].dt.normalize().dropna().unique())
     )
@@ -311,8 +311,8 @@ def _build_dim_date(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # Return {year: DataFrame} for the fact_trips tables.
-def _build_fact_trips(df: pd.DataFrame) -> dict:
-    out = _ensure_station_ids(df)
+def build_fact_trips(df: pd.DataFrame) -> dict:
+    out = ensure_station_ids(df)
     out["date_id"]           = out["started_at"].dt.strftime("%Y%m%d").astype(int)
     out["start_hour"]        = out["started_at"].dt.hour
     out["year"]              = out["started_at"].dt.year
@@ -337,8 +337,8 @@ def _build_fact_trips(df: pd.DataFrame) -> dict:
 
 
 # Build top N intra-city station-to-station route patterns per city/year.
-def _build_fact_top_trip_patterns(df: pd.DataFrame, n: int = 10, years: list[int] | None = None) -> pd.DataFrame:
-    out = _ensure_station_ids(df)
+def build_fact_top_trip_patterns(df: pd.DataFrame, n: int = 10, years: list[int] | None = None) -> pd.DataFrame:
+    out = ensure_station_ids(df)
 
     required = [
         "city_id",
@@ -476,7 +476,7 @@ def run_silver_to_gold() -> None:
     for path in [FACTS_PATH, DIMENSIONS_PATH, NOTEBOOK_EXPORTS_PATH]:
         path.mkdir(parents=True, exist_ok=True)
 
-    all_data = _load_all_silver()
+    all_data = load_all_silver()
     if all_data.empty:
         print("  [!] No silver data found. Run Stage 1 first.")
         return
@@ -484,9 +484,9 @@ def run_silver_to_gold() -> None:
     print(f"  Combined silver rows: {len(all_data):,}")
 
     # Dimensions
-    dim_city     = _build_dim_city()
-    dim_stations = _build_dim_stations(all_data)
-    dim_date     = _build_dim_date(all_data)
+    dim_city     = build_dim_city()
+    dim_stations = build_dim_stations(all_data)
+    dim_date     = build_dim_date(all_data)
 
     dim_city.to_csv(DIMENSIONS_PATH / "dim_city.csv", index=False)
     dim_stations.to_csv(DIMENSIONS_PATH / "dim_stations.csv", index=False)
@@ -497,14 +497,14 @@ def run_silver_to_gold() -> None:
     print(f"  [gold/dim] dim_date:     {len(dim_date):>6,} rows")
 
     # Facts — one file per year
-    facts_by_year = _build_fact_trips(all_data)
+    facts_by_year = build_fact_trips(all_data)
     total_trips   = 0
     for year, fact_df in sorted(facts_by_year.items()):
         fact_df.to_csv(FACTS_PATH / f"fact_trips_{year}.csv", index=False)
         print(f"  [gold/fact] fact_trips_{year}: {len(fact_df):>8,} trips")
         total_trips += len(fact_df)
 
-    top_patterns = _build_fact_top_trip_patterns(all_data, n=10)
+    top_patterns = build_fact_top_trip_patterns(all_data, n=10)
     top_patterns_path = FACTS_PATH / "fact_top_trip_patterns.csv"
     top_patterns.to_csv(top_patterns_path, index=False)
     print(f"  [gold/fact] fact_top_trip_patterns: {len(top_patterns):>8,} rows")
@@ -535,12 +535,12 @@ def run_gold_top_patterns_only(years: list[int] | None = None) -> None:
     print("\n[Stage 2b]  Silver → Gold (top patterns only)")
     FACTS_PATH.mkdir(parents=True, exist_ok=True)
 
-    all_data = _load_all_silver()
+    all_data = load_all_silver()
     if all_data.empty:
         print("  [!] No silver data found. Run Stage 1 first.")
         return
 
-    top_patterns = _build_fact_top_trip_patterns(all_data, n=10, years=years)
+    top_patterns = build_fact_top_trip_patterns(all_data, n=10, years=years)
     top_patterns_path = FACTS_PATH / "fact_top_trip_patterns.csv"
     top_patterns.to_csv(top_patterns_path, index=False)
 

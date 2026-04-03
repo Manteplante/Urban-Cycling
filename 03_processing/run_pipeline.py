@@ -23,11 +23,12 @@ from config import (
     NOTEBOOK_EXPORTS_PATH,
     SILVER_PATH,
 )
+from transform import run_etl, run_gold_top_patterns_only
 
 
 # ── Layer status ───────────────────────────────────────────────────────────────
 
-def _layer_status() -> None:
+def layer_status() -> None:
     print("\n  Data layer status")
     print("  " + "─" * 52)
 
@@ -68,12 +69,10 @@ if __name__ == "__main__":
     print("  Urban Cycling — Medallion Pipeline Runner")
     print("═" * 60)
 
-    _layer_status()
+    layer_status()
 
     if args.status:
         sys.exit(0)
-
-    from transform import run_etl, run_gold_top_patterns_only
 
     if args.top_patterns:
         run_gold_top_patterns_only(years=args.years)
@@ -85,4 +84,4 @@ if __name__ == "__main__":
         run_etl(silver=True, gold=True)
 
     print("\n  ─── Final status ───")
-    _layer_status()
+    layer_status()

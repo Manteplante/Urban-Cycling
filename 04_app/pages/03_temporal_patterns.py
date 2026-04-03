@@ -1,5 +1,6 @@
 # Temporal patterns page driven by notebook exports.
 
+# ── Imports ───────────────────────────────────────────────────────────────────
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -7,6 +8,7 @@ import streamlit as st
 from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
+# ── Page setup ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Temporal Patterns - Urban Cycling",
     page_icon="⏱️",
@@ -15,10 +17,12 @@ st.set_page_config(
 st.header("⏱️ Temporal Patterns")
 st.page_link("pages/03_work_trips.py", label="Open Work Trips (rush-hour routes) →")
 
+# ── Load notebook exports ─────────────────────────────────────────────────────
 hourly = load_export_df("temporal_patterns_hourly.csv")
 daily = load_export_df("temporal_patterns_daily.csv")
 monthly = load_export_df("temporal_patterns_monthly.csv")
 
+# ── Validate input contracts ──────────────────────────────────────────────────
 if hourly.empty or daily.empty or monthly.empty:
     st.info(
         "Temporal pattern exports are missing. Run "
@@ -46,6 +50,7 @@ if missing_hourly or missing_daily or missing_monthly:
     st.error("Temporal exports have missing columns - " + " | ".join(details))
     st.stop()
 
+# ── Type cleanup and null handling ────────────────────────────────────────────
 for frame in [hourly, daily, monthly]:
     frame["year"] = pd.to_numeric(frame["year"], errors="coerce")
 
@@ -60,6 +65,7 @@ monthly["year"] = monthly["year"].astype(int)
 daily["day_of_week"] = pd.to_numeric(daily["day_of_week"], errors="coerce")
 monthly["month"] = pd.to_numeric(monthly["month"], errors="coerce")
 
+# ── Sidebar filters ───────────────────────────────────────────────────────────
 all_cities = sorted(set(hourly["city_name"]) | set(daily["city_name"]) | set(monthly["city_name"]))
 all_years = sorted(set(hourly["year"]) | set(daily["year"]) | set(monthly["year"]))
 weekday_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -75,6 +81,7 @@ if not selected_years:
     st.warning("Select at least one year to display charts.")
     st.stop()
 
+# ── Filter exported frames ────────────────────────────────────────────────────
 if selected_city == "All Cities":
     hourly_plot = hourly[hourly["year"].isin(selected_years)].copy()
     daily_plot = daily[daily["year"].isin(selected_years)].copy()
@@ -98,6 +105,7 @@ if hourly_plot.empty or daily_plot.empty or monthly_plot.empty:
     st.info("No temporal data found for the selected filters.")
     st.stop()
 
+# ── Build chart-ready aggregates ──────────────────────────────────────────────
 hourly_plot["start_hour"] = pd.to_numeric(hourly_plot["start_hour"], errors="coerce")
 hourly_plot = hourly_plot.dropna(subset=["start_hour"]).copy()
 hourly_plot["start_hour"] = hourly_plot["start_hour"].astype(int)
@@ -111,6 +119,7 @@ daily_view = daily_plot.groupby(["day_of_week", "day_name"], as_index=False)["tr
 monthly_view = monthly_plot.groupby(["year", "month", "month_name"], as_index=False)["trips"].sum().sort_values(["year", "month"])
 monthly_view["period"] = monthly_view["year"].astype(str) + "-" + monthly_view["month"].astype(int).astype(str).str.zfill(2)
 
+# ── Render charts ─────────────────────────────────────────────────────────────
 st.caption(
     f"Source rows - hourly: {len(hourly_plot):,}, daily: {len(daily_plot):,}, monthly: {len(monthly_plot):,}"
 )
@@ -161,6 +170,7 @@ fig_monthly.update_layout(plot_bgcolor="white")
 fig_monthly.update_xaxes(tickangle=-45)
 st.plotly_chart(fig_monthly, use_container_width=True)
 
+# ── Optional table view ───────────────────────────────────────────────────────
 with st.expander("Show aggregated tables"):
     st.markdown("**Hourly**")
     st.dataframe(hourly_view[["hour_label", "trips"]], use_container_width=True, hide_index=True)

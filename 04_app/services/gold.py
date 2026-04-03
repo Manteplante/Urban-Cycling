@@ -13,15 +13,17 @@ from dotenv import load_dotenv
 
 try:
     import streamlit as st
+    import streamlit.runtime as st_runtime
 except Exception:
     st = None
+    st_runtime = None
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 _PROJECT_ROOT    = Path(__file__).parents[2]
 load_dotenv(_PROJECT_ROOT / ".env")
 
 
-def _resolve_env_path(var_name: str, default_relative: str) -> Path:
+def resolve_env_path(var_name: str, default_relative: str) -> Path:
     raw = (os.getenv(var_name) or default_relative).strip()
     candidate = Path(raw).expanduser()
     if not candidate.is_absolute():
@@ -29,24 +31,23 @@ def _resolve_env_path(var_name: str, default_relative: str) -> Path:
     return candidate.resolve()
 
 
-_GOLD_PATH       = _resolve_env_path("GOLD_PATH", "02_data/gold")
-_FACTS_PATH      = _resolve_env_path("FACTS_PATH", "02_data/gold/facts")
-_DIMENSIONS_PATH = _resolve_env_path("DIMENSIONS_PATH", "02_data/gold/dimensions")
+_GOLD_PATH       = resolve_env_path("GOLD_PATH", "02_data/gold")
+_FACTS_PATH      = resolve_env_path("FACTS_PATH", "02_data/gold/facts")
+_DIMENSIONS_PATH = resolve_env_path("DIMENSIONS_PATH", "02_data/gold/dimensions")
 
 
-def _cache_data(ttl: int = 3600):
+def cache_data(ttl: int = 3600):
     # Notebook and script contexts should not depend on Streamlit runtime state.
     if st is None:
-        def _decorator(func):
+        def decorator(func):
             return func
-        return _decorator
+        return decorator
 
     try:
-        import streamlit.runtime as st_runtime
-        if not st_runtime.exists():
-            def _decorator(func):
+        if st_runtime is None or not st_runtime.exists():
+            def decorator(func):
                 return func
-            return _decorator
+            return decorator
     except Exception:
         pass
 
@@ -81,8 +82,8 @@ _SCHEMA_REFERENCE_LINES = [
 #  Low-level cached loaders  (internal — use the catalog instead)
 # ══════════════════════════════════════════════════════════════════════════════
 
-@_cache_data(ttl=3600)
-def _cities() -> pd.DataFrame:
+@cache_data(ttl=3600)
+def cities() -> pd.DataFrame:
     path = _DIMENSIONS_PATH / "dim_city.csv"
     if not path.exists():
         return pd.DataFrame({
@@ -94,24 +95,24 @@ def _cities() -> pd.DataFrame:
     return pd.read_csv(path)
 
 
-@_cache_data(ttl=3600)
-def _stations() -> pd.DataFrame:
+@cache_data(ttl=3600)
+def stations() -> pd.DataFrame:
     path = _DIMENSIONS_PATH / "dim_stations.csv"
     if not path.exists():
         return pd.DataFrame(columns=["station_id","station_name","latitude","longitude","city_id"])
     return pd.read_csv(path)
 
 
-@_cache_data(ttl=3600)
-def _dates() -> pd.DataFrame:
+@cache_data(ttl=3600)
+def dates() -> pd.DataFrame:
     path = _DIMENSIONS_PATH / "dim_date.csv"
     if not path.exists():
         return pd.DataFrame()
     return pd.read_csv(path, parse_dates=["date"])
 
 
-@_cache_data(ttl=3600)
-def _available_years() -> list[int]:
+@cache_data(ttl=3600)
+def available_years() -> list[int]:
     if not _FACTS_PATH.exists():
         return []
     return sorted(
@@ -120,8 +121,8 @@ def _available_years() -> list[int]:
     )
 
 
-@_cache_data(ttl=3600)
-def _facts(years: tuple[int, ...]) -> pd.DataFrame:
+@cache_data(ttl=3600)
+def facts(years: tuple[int, ...]) -> pd.DataFrame:
     if not _FACTS_PATH.exists():
         return pd.DataFrame()
     frames = []
@@ -134,18 +135,18 @@ def _facts(years: tuple[int, ...]) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-@_cache_data(ttl=3600)
-def _top_trip_patterns() -> pd.DataFrame:
+@cache_data(ttl=3600)
+def top_trip_patterns() -> pd.DataFrame:
     path = _FACTS_PATH / "fact_top_trip_patterns.csv"
     if not path.exists():
         return pd.DataFrame()
     return pd.read_csv(path)
 
 
-@_cache_data(ttl=3600)
-def _joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
+@cache_data(ttl=3600)
+def joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
     # Fully denormalised trips table, filtered and joined once, then cached.
-    facts = _facts(years)
+    facts = facts(years)
     if facts.empty:
         return pd.DataFrame()
 
@@ -154,9 +155,9 @@ def _joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
     if facts.empty:
         return pd.DataFrame()
 
-    dim_city     = _cities()
-    dim_stations = _stations()
-    dim_date     = _dates()
+    dim_city     = cities()
+    dim_stations = stations()
+    dim_date     = dates()
 
     df = facts.copy()
 
@@ -254,7 +255,7 @@ class GoldQuery:
         # Execute the query and return a denormalised DataFrame.
         # Results are cached; empty DataFrame means no matching data.
         # Resolve city_ids from names
-        dim_city   = _cities()
+        dim_city   = cities()
         target_ids: tuple[int, ...] = ()
         if self._city_names:
             lower = [c.lower() for c in self._city_names]
@@ -262,7 +263,7 @@ class GoldQuery:
             target_ids = tuple(sorted(set(ids)))
 
         # Resolve years
-        available  = _available_years()
+        available  = available_years()
         if self._years:
             target_years = tuple(sorted(set(self._years) & set(available)))
         else:
@@ -271,7 +272,7 @@ class GoldQuery:
         if not target_years:
             return pd.DataFrame()
 
-        df = _joined(city_ids=target_ids, years=target_years)
+        df = joined(city_ids=target_ids, years=target_years)
 
         # Post-filter months (not worth caching at this granularity)
         if self._months and "month" in df.columns:
@@ -301,21 +302,21 @@ class _GoldCatalog:
     def trips(self, years: list[int] = None) -> pd.DataFrame:
         # All fact trips, optionally filtered by year(s).
         # Returns the raw fact table without joined station/date columns.
-        available = _available_years()
+        available = available_years()
         target    = tuple(sorted(set(years) & set(available))) if years else tuple(available)
-        return _facts(target)
+        return facts(target)
 
     def stations(self) -> pd.DataFrame:
         # Dimension table of all bike stations with lat/lon.
-        return _stations()
+        return stations()
 
     def dates(self) -> pd.DataFrame:
         # Calendar dimension table (date, year, month, weekday, etc.).
-        return _dates()
+        return dates()
 
     def cities(self) -> pd.DataFrame:
         # City lookup table (city_id, city_name, display_name, country).
-        return _cities()
+        return cities()
 
     def top_trip_patterns(
         self,
@@ -324,13 +325,13 @@ class _GoldCatalog:
         limit: int = 10,
     ) -> pd.DataFrame:
         # Precomputed top route patterns for map overlays.
-        df = _top_trip_patterns().copy()
+        df = top_trip_patterns().copy()
         if df.empty:
             return df
 
         if city:
             city_lower = city.strip().lower()
-            city_dim = _cities()
+            city_dim = cities()
             candidate_ids = city_dim[
                 (city_dim["city_name"].str.lower() == city_lower)
                 | (city_dim["display_name"].str.lower() == city_lower)
@@ -375,11 +376,11 @@ class _GoldCatalog:
 
     def available_years(self) -> list[int]:
         # Return sorted years that have gold fact data.
-        return _available_years()
+        return available_years()
 
     def available_cities(self) -> list[str]:
         # Return city display names (e.g. Oslo, Bergen, Trondheim).
-        return _cities()["display_name"].tolist()
+        return cities()["display_name"].tolist()
 
     def schema(self) -> None:
         # Print a column reference for the denormalised trips table.

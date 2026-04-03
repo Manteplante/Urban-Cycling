@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
 
-def _resolve_env_path(var_name: str, default_relative: str) -> Path:
+def resolve_env_path(var_name: str, default_relative: str) -> Path:
 	raw = (os.getenv(var_name) or default_relative).strip()
 	candidate = Path(raw).expanduser()
 	if not candidate.is_absolute():
@@ -27,14 +27,14 @@ def _resolve_env_path(var_name: str, default_relative: str) -> Path:
 	return candidate.resolve()
 
 # Medallion layers
-BRONZE_PATH = _resolve_env_path("BRONZE_PATH", "02_data/bronze")
-SILVER_PATH = _resolve_env_path("SILVER_PATH", "02_data/silver")
-GOLD_PATH = _resolve_env_path("GOLD_PATH", "02_data/gold")
+BRONZE_PATH = resolve_env_path("BRONZE_PATH", "02_data/bronze")
+SILVER_PATH = resolve_env_path("SILVER_PATH", "02_data/silver")
+GOLD_PATH = resolve_env_path("GOLD_PATH", "02_data/gold")
 
 # Gold sub-directories
-FACTS_PATH = _resolve_env_path("FACTS_PATH", str(Path("02_data") / "gold" / "facts"))
-DIMENSIONS_PATH = _resolve_env_path("DIMENSIONS_PATH", str(Path("02_data") / "gold" / "dimensions"))
-NOTEBOOK_EXPORTS_PATH = _resolve_env_path(
+FACTS_PATH = resolve_env_path("FACTS_PATH", str(Path("02_data") / "gold" / "facts"))
+DIMENSIONS_PATH = resolve_env_path("DIMENSIONS_PATH", str(Path("02_data") / "gold" / "dimensions"))
+NOTEBOOK_EXPORTS_PATH = resolve_env_path(
 	"NOTEBOOK_EXPORTS_PATH",
 	str(Path("02_data") / "gold" / "notebook_exports"),
 )

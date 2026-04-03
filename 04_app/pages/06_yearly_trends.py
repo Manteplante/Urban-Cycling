@@ -1,5 +1,6 @@
 # Yearly trends page — uses notebook export yearly_trends_city_year.csv.
 
+# ── Imports ───────────────────────────────────────────────────────────────────
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -7,6 +8,7 @@ import streamlit as st
 from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
+# ── Page setup ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Yearly Trends — Urban Cycling",
     page_icon="📅",
@@ -14,6 +16,7 @@ st.set_page_config(
 )
 st.header("📅 Yearly Trends")
 
+# ── Load export and validate contract ─────────────────────────────────────────
 export_filename = "yearly_trends_city_year.csv"
 df = load_export_df(export_filename)
 
@@ -33,12 +36,14 @@ if missing:
     )
     st.stop()
 
+# ── Type cleanup ──────────────────────────────────────────────────────────────
 df = df.copy()
 df["year"] = pd.to_numeric(df["year"], errors="coerce")
 df["trips"] = pd.to_numeric(df["trips"], errors="coerce")
 df = df.dropna(subset=["city_name", "year", "trips"]).copy()
 df["year"] = df["year"].astype(int)
 
+# ── Sidebar filters ───────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 📅 Yearly filters")
     cities = sorted(df["city_name"].dropna().unique().tolist())
@@ -59,6 +64,7 @@ if plot_df.empty:
     st.warning("Select at least one city to display yearly trends.")
     st.stop()
 
+# ── Render chart ──────────────────────────────────────────────────────────────
 fig = px.bar(
     plot_df.sort_values(["year", "city_name"]),
     x="year",
@@ -73,6 +79,7 @@ fig.update_xaxes(type="category")
 
 st.plotly_chart(fig, use_container_width=True)
 
+# ── Optional table ────────────────────────────────────────────────────────────
 with st.expander("Show yearly trend data"):
     st.dataframe(
         plot_df.sort_values(["city_name", "year"]),

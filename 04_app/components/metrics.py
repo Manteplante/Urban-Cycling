@@ -2,6 +2,7 @@
 
 import streamlit as st
 import pandas as pd
+from services.gold import gold
 
 
 # Four-column KPI row: trips, stations, avg duration, cities.
@@ -33,7 +34,6 @@ def headline_metrics(df: pd.DataFrame, n_cities_override: int | None = None) -> 
 
 # Green success bar when data is present, yellow warning when missing.
 def data_status_banner() -> None:
-    from services.gold import gold
     years = gold.available_years()
     if years:
         st.success(f"✅  Gold layer loaded — years available: {', '.join(str(y) for y in years)}")

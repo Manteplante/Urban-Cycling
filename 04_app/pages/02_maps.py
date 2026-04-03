@@ -1,5 +1,6 @@
 # Maps page — interactive station map with city zoom and route overlays.
 
+# ── Imports ───────────────────────────────────────────────────────────────────
 import folium
 import pandas as pd
 import streamlit as st
@@ -13,6 +14,7 @@ from services.transform import (
     station_trip_counts,
 )
 
+# ── Page setup ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Maps — Urban Cycling",
     page_icon="🗺️",
@@ -27,7 +29,7 @@ query = sidebar_filters(
 )
 
 
-def _fit_bounds(map_obj: folium.Map, points: pd.DataFrame) -> None:
+def fit_bounds(map_obj: folium.Map, points: pd.DataFrame) -> None:
     if points.empty:
         return
     min_lat = points["latitude"].min()
@@ -39,11 +41,12 @@ def _fit_bounds(map_obj: folium.Map, points: pd.DataFrame) -> None:
     map_obj.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]], padding=(16, 16))
 
 
-def _route_weight(route_row: pd.Series, max_trips: int) -> float:
+def route_weight(route_row: pd.Series, max_trips: int) -> float:
     if max_trips <= 0:
         return 3.0
     return 2.5 + (float(route_row["trip_count"]) / float(max_trips)) * 5.0
 
+# ── Sidebar controls ──────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🧭 Map view")
     all_city_options = ["All Cities"] + (gold.available_cities() or ["Oslo", "Bergen", "Trondheim"])
@@ -110,7 +113,7 @@ m = folium.Map(
     tiles="CartoDB Positron",
 )
 
-_fit_bounds(m, stations_df[["latitude", "longitude"]])
+fit_bounds(m, stations_df[["latitude", "longitude"]])
 
 max_val = stations_df[colour_by].max() or 1
 
@@ -183,7 +186,7 @@ if not route_lines.empty:
                 [route["end_lat"], route["end_lon"]],
             ],
             color="#1f78b4",
-            weight=_route_weight(route, max_route_trips),
+            weight=route_weight(route, max_route_trips),
             opacity=0.8,
             tooltip=route.get("route_label", "Route"),
             popup=popup,

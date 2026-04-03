@@ -15,7 +15,7 @@ PROJECT_ROOT      = Path(__file__).parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
 
-def _resolve_env_path(var_name: str, default_relative: str) -> Path:
+def resolve_env_path(var_name: str, default_relative: str) -> Path:
     raw = (os.getenv(var_name) or default_relative).strip()
     candidate = Path(raw).expanduser()
     if not candidate.is_absolute():
@@ -23,7 +23,7 @@ def _resolve_env_path(var_name: str, default_relative: str) -> Path:
     return candidate.resolve()
 
 
-EXPORTS_PATH = _resolve_env_path("NOTEBOOK_EXPORTS_PATH", "02_data/gold/notebook_exports")
+EXPORTS_PATH = resolve_env_path("NOTEBOOK_EXPORTS_PATH", "02_data/gold/notebook_exports")
 
 
 # Return True if the notebook_exports directory has any artefacts.

@@ -1,5 +1,6 @@
 # Top routes and stations page driven by notebook exports.
 
+# ── Imports ───────────────────────────────────────────────────────────────────
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -7,6 +8,7 @@ import streamlit as st
 from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
+# ── Page setup ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Top Routes and Stations - Urban Cycling",
     page_icon="🔝",
@@ -14,6 +16,7 @@ st.set_page_config(
 )
 st.header("🔝 Top Routes and Stations")
 
+# ── Load exports and validate contracts ───────────────────────────────────────
 routes = load_export_df("top_routes_city_year.csv")
 stations = load_export_df("top_stations_city_year.csv")
 
@@ -51,6 +54,7 @@ if missing_routes or missing_stations:
     st.error("Top exports have missing columns - " + " | ".join(details))
     st.stop()
 
+# ── Type cleanup ──────────────────────────────────────────────────────────────
 routes["year"] = pd.to_numeric(routes["year"], errors="coerce")
 stations["year"] = pd.to_numeric(stations["year"], errors="coerce")
 routes = routes.dropna(subset=["year", "city_name", "start_station_name", "end_station_name", "trips"]).copy()
@@ -58,6 +62,7 @@ stations = stations.dropna(subset=["year", "city_name", "station_name", "total_t
 routes["year"] = routes["year"].astype(int)
 stations["year"] = stations["year"].astype(int)
 
+# ── Sidebar filters ───────────────────────────────────────────────────────────
 all_cities = sorted(set(routes["city_name"]) | set(stations["city_name"]))
 all_years = sorted(set(routes["year"]) | set(stations["year"]))
 
@@ -71,6 +76,7 @@ if not selected_years:
     st.warning("Select at least one year to display charts.")
     st.stop()
 
+# ── Filter + aggregate top views ──────────────────────────────────────────────
 if selected_city == "All Cities":
     routes_plot = routes[routes["year"].isin(selected_years)].copy()
     stations_plot = stations[stations["year"].isin(selected_years)].copy()
@@ -101,6 +107,7 @@ end_stations_view = (
     .head(top_n)
 )
 
+# ── Render summary metrics and charts ─────────────────────────────────────────
 col_a, col_b, col_c = st.columns(3)
 col_a.metric("Route rows", f"{len(routes_plot):,}")
 col_b.metric("Station rows", f"{len(stations_plot):,}")
@@ -149,6 +156,7 @@ with end_col:
     fig_end_stations.update_layout(showlegend=False, coloraxis_showscale=False, plot_bgcolor="white")
     st.plotly_chart(fig_end_stations, use_container_width=True)
 
+# ── Optional detail tables ────────────────────────────────────────────────────
 with st.expander("Show detail tables"):
     st.markdown("**Routes**")
     st.dataframe(routes_view, use_container_width=True, hide_index=True)

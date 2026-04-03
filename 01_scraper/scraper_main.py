@@ -62,7 +62,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
 
-def _resolve_env_path(*keys, default_relative):
+def resolve_env_path(*keys, default_relative):
     for key in keys:
         value = os.getenv(key)
         if value and value.strip():
@@ -91,9 +91,9 @@ def process_monthly_update():
 
     # Load folder paths from environment variables
     folder_paths = {
-        "Oslo": _resolve_env_path("BRONZE_OSLO_PATH", "OSLO", default_relative="02_data/bronze/oslo"),
-        "Bergen": _resolve_env_path("BRONZE_BERGEN_PATH", "BERGEN", default_relative="02_data/bronze/bergen"),
-        "Trondheim": _resolve_env_path("BRONZE_TRONDHEIM_PATH", "TRONDHEIM", default_relative="02_data/bronze/trondheim"),
+        "Oslo": resolve_env_path("BRONZE_OSLO_PATH", "OSLO", default_relative="02_data/bronze/oslo"),
+        "Bergen": resolve_env_path("BRONZE_BERGEN_PATH", "BERGEN", default_relative="02_data/bronze/bergen"),
+        "Trondheim": resolve_env_path("BRONZE_TRONDHEIM_PATH", "TRONDHEIM", default_relative="02_data/bronze/trondheim"),
     }
     
     # Check that all paths exist, create if not

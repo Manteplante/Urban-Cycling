@@ -1,5 +1,6 @@
 # Least-used stations and routes map page.
 
+# ── Imports ───────────────────────────────────────────────────────────────────
 import folium
 import pandas as pd
 import streamlit as st
@@ -8,6 +9,7 @@ from streamlit_folium import st_folium
 from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
+# ── Page setup ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Least Used Stations and Routes - Urban Cycling",
     page_icon="📉",
@@ -17,7 +19,8 @@ st.header("📉 Least Used Stations and Routes")
 st.caption("Station-dot map of least-used stations, with trip bins and yearly filters.")
 
 
-def _fit_bounds(map_obj: folium.Map, points: pd.DataFrame) -> None:
+# ── Map helper ────────────────────────────────────────────────────────────────
+def fit_bounds(map_obj: folium.Map, points: pd.DataFrame) -> None:
     if points.empty:
         return
     min_lat = points["latitude"].min()
@@ -29,7 +32,8 @@ def _fit_bounds(map_obj: folium.Map, points: pd.DataFrame) -> None:
     map_obj.fit_bounds([[min_lat, min_lon], [max_lat, max_lon]], padding=(16, 16))
 
 
-def _build_station_table_from_role_exports() -> pd.DataFrame:
+# ── Export fallback builder ───────────────────────────────────────────────────
+def build_station_table_from_role_exports() -> pd.DataFrame:
     starts = load_export_df("least_used_start_stations.csv")
     ends = load_export_df("least_used_end_stations.csv")
     if starts.empty and ends.empty:
@@ -102,9 +106,10 @@ def _build_station_table_from_role_exports() -> pd.DataFrame:
     return merged
 
 
+# ── Load and validate station export ──────────────────────────────────────────
 stations = load_export_df("least_used_stations.csv")
 if stations.empty:
-    stations = _build_station_table_from_role_exports()
+    stations = build_station_table_from_role_exports()
 
 if stations.empty:
     st.info(
@@ -129,6 +134,7 @@ if missing:
     st.error("Least-used station export has missing columns: " + ", ".join(missing))
     st.stop()
 
+# ── Type cleanup ──────────────────────────────────────────────────────────────
 for col in [
     "year",
     "departures",
@@ -162,6 +168,7 @@ if stations.empty:
     st.info("No least-used stations available in export.")
     st.stop()
 
+# ── Sidebar filters ───────────────────────────────────────────────────────────
 all_cities = sorted(stations["city_name"].dropna().unique().tolist())
 all_years = sorted(stations["year"].dropna().unique().tolist())
 bin_order = [
@@ -206,6 +213,7 @@ if plot_df.empty:
     st.info("No least-used stations found for the selected filters.")
     st.stop()
 
+# ── Build least-used view ─────────────────────────────────────────────────────
 summary = (
     plot_df.sort_values(["total_trips", "city_name", "year"], ascending=[True, True, True])
     .head(bottom_n)
@@ -221,6 +229,7 @@ c4.metric("Avg trips / station", f"{int(round(summary['total_trips'].mean())):,}
 
 st.divider()
 
+# ── Render map ────────────────────────────────────────────────────────────────
 center_lat = summary["latitude"].mean()
 center_lon = summary["longitude"].mean()
 m = folium.Map(
@@ -229,7 +238,7 @@ m = folium.Map(
     tiles="CartoDB Positron",
 )
 
-_fit_bounds(m, summary[["latitude", "longitude"]])
+fit_bounds(m, summary[["latitude", "longitude"]])
 
 max_val = summary[colour_by].max() or 1
 for _, row in summary.iterrows():
@@ -265,6 +274,7 @@ for _, row in summary.iterrows():
 st_folium(m, width=900, height=560, returned_objects=[])
 
 st.divider()
+# ── Optional table ────────────────────────────────────────────────────────────
 with st.expander("Selected station details"):
     st.dataframe(
         summary[

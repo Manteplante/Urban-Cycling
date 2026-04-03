@@ -1,5 +1,6 @@
 # Longest duration trips route view — map focused on >30 minute start→end corridors.
 
+# ── Imports ───────────────────────────────────────────────────────────────────
 import folium
 import pandas as pd
 import streamlit as st
@@ -8,6 +9,7 @@ from streamlit_folium import st_folium
 from components.filters import default_year_selection
 from services.gold import gold
 
+# ── Page setup ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Longest Duration-Trips View — Urban Cycling",
     page_icon="🧭",
@@ -16,6 +18,7 @@ st.set_page_config(
 st.header("🧭 Longest Duration-Trips View")
 st.caption("Route-focused map for trips longer than 30 minutes")
 
+# ── Sidebar filters ───────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🧭 Long-trip filters")
     all_cities = gold.available_cities() or ["Oslo", "Bergen", "Trondheim"]
@@ -28,6 +31,7 @@ if not selected_years:
     st.warning("Select at least one year to display long trips.")
     st.stop()
 
+# ── Load and validate gold data ───────────────────────────────────────────────
 query = gold.query().years(selected_years)
 if selected_city != "All Cities":
     query = query.city(selected_city)
@@ -55,6 +59,7 @@ if missing:
     st.error("Missing required columns: " + ", ".join(missing))
     st.stop()
 
+# ── Derive long-trip route summaries ──────────────────────────────────────────
 long_trips = df.dropna(subset=["duration_seconds"]).copy()
 long_trips["duration_minutes"] = long_trips["duration_seconds"] / 60
 long_trips = long_trips[long_trips["duration_minutes"] > 30].copy()
@@ -118,6 +123,7 @@ route_summary["route_label"] = route_summary.apply(
     axis=1,
 )
 
+# ── Build station-level diagnostics used in popups ────────────────────────────
 start_summary = (
     long_trips.groupby(["city_name", "start_station_name", "start_lat", "start_lon"], as_index=False)
     .agg(
@@ -171,6 +177,7 @@ station_summary["key"] = (
 )
 station_lookup = station_summary.set_index("key")
 
+# ── Route selector ────────────────────────────────────────────────────────────
 with st.sidebar:
     route_options = route_summary["route_label"].head(10).tolist()
     selected_routes = st.multiselect(
@@ -191,7 +198,8 @@ selected_route_df = (
 )
 
 
-def _station_stats(city_name: str, station_name: str, lat: float, lon: float) -> dict:
+# ── Station popup helper ──────────────────────────────────────────────────────
+def station_stats(city_name: str, station_name: str, lat: float, lon: float) -> dict:
     key = f"{city_name}|{station_name}|{lat}|{lon}"
     if key not in station_lookup.index:
         return {"departures": 0, "arrivals": 0, "total_long_trips": 0, "avg_duration_minutes": 0.0}
@@ -203,6 +211,7 @@ def _station_stats(city_name: str, station_name: str, lat: float, lon: float) ->
         "avg_duration_minutes": float(row["avg_duration_minutes"]),
     }
 
+# ── Render map and overlays ───────────────────────────────────────────────────
 all_lats = pd.concat([selected_route_df["start_lat"], selected_route_df["end_lat"]], ignore_index=True)
 all_lons = pd.concat([selected_route_df["start_lon"], selected_route_df["end_lon"]], ignore_index=True)
 center_lat = all_lats.mean()
@@ -216,10 +225,10 @@ line_colors = [
 
 for idx, route_row in selected_route_df.iterrows():
     line_color = line_colors[idx % len(line_colors)]
-    start_stats = _station_stats(
+    start_stats = station_stats(
         route_row["city_name"], route_row["start_station_name"], route_row["start_lat"], route_row["start_lon"]
     )
-    end_stats = _station_stats(
+    end_stats = station_stats(
         route_row["city_name"], route_row["end_station_name"], route_row["end_lat"], route_row["end_lon"]
     )
 
@@ -280,6 +289,7 @@ c3.metric("Selected route trips", f"{int(selected_route_df['long_trips'].sum()):
 
 st_folium(m, width=980, height=560, returned_objects=[])
 
+# ── Optional detail tables ────────────────────────────────────────────────────
 with st.expander("Selected route details"):
     st.dataframe(
         selected_route_df[[

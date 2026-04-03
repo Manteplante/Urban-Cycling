@@ -1,5 +1,6 @@
 # Work-trips route map (rush-hour windows).
 
+# ── Imports ───────────────────────────────────────────────────────────────────
 import folium
 import pandas as pd
 import streamlit as st
@@ -8,6 +9,7 @@ from streamlit_folium import st_folium
 from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
+# ── Page setup ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Work Trips - Urban Cycling",
     page_icon="🕘",
@@ -16,6 +18,7 @@ st.set_page_config(
 st.header("🕘 Work Trips")
 st.caption("Top 10 distinct start-end routes for weekdays and rush-hour windows (06-09 and 14-17)")
 
+# ── Load and validate export contract ─────────────────────────────────────────
 routes = load_export_df("work_trips_routes.csv")
 
 if routes.empty:
@@ -47,6 +50,7 @@ if missing:
     st.error("Work-trip export has missing columns: " + ", ".join(missing))
     st.stop()
 
+# ── Type cleanup and weekday scope ────────────────────────────────────────────
 routes["year"] = pd.to_numeric(routes["year"], errors="coerce")
 routes["day_of_week"] = pd.to_numeric(routes["day_of_week"], errors="coerce")
 routes["trips"] = pd.to_numeric(routes["trips"], errors="coerce")
@@ -68,6 +72,7 @@ if routes.empty:
     st.info("No distinct start-end work-trip routes available.")
     st.stop()
 
+# ── Sidebar filters ───────────────────────────────────────────────────────────
 all_cities = sorted(routes["city_name"].dropna().unique().tolist())
 all_years = sorted(routes["year"].dropna().unique().tolist())
 time_bin_order = ["Morning (06-09)", "Evening (14-17)"]
@@ -110,6 +115,7 @@ if not selected_weekdays:
     st.warning("Select at least one weekday.")
     st.stop()
 
+# ── Filter and build top-route summary ────────────────────────────────────────
 plot_df = routes[routes["year"].isin(selected_years)].copy()
 plot_df = plot_df[plot_df["day_name"].isin(selected_weekdays)].copy()
 plot_df = plot_df[plot_df["time_bin"].isin(selected_time_bins)].copy()
@@ -159,6 +165,7 @@ summary["route_label"] = summary.apply(
     axis=1,
 )
 
+# ── Route selection for map display ───────────────────────────────────────────
 with st.sidebar:
     route_options = summary["route_label"].tolist()
     selected_routes = st.multiselect(
@@ -172,6 +179,7 @@ if not selected_routes:
     st.warning("Select at least one route to display.")
     st.stop()
 
+# ── Render map + overlays ─────────────────────────────────────────────────────
 selected = pd.DataFrame()
 selected = summary[summary["route_label"].isin(selected_routes)].sort_values("rank").reset_index(drop=True)
 
@@ -241,6 +249,7 @@ c3.metric("Trips in selected routes", f"{int(selected['trips'].sum()):,}")
 
 st_folium(m, width=980, height=560, returned_objects=[])
 
+# ── Optional detail table ─────────────────────────────────────────────────────
 with st.expander("Selected route details"):
     st.dataframe(
         selected[

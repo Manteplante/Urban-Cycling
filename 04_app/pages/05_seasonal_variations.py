@@ -1,5 +1,6 @@
 # Seasonal variations page — uses notebook export seasonal_trends_city_year.csv.
 
+# ── Imports ───────────────────────────────────────────────────────────────────
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -7,6 +8,7 @@ import streamlit as st
 from components.filters import default_year_selection
 from services.notebook_outputs import load_export_df
 
+# ── Page setup ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Seasonal Variations — Urban Cycling",
     page_icon="🍂",
@@ -14,6 +16,7 @@ st.set_page_config(
 )
 st.header("🍂 Seasonal Variations")
 
+# ── Load export and validate required columns ─────────────────────────────────
 export_filename = "seasonal_trends_city_year.csv"
 df = load_export_df(export_filename)
 
@@ -33,6 +36,7 @@ if missing:
     )
     st.stop()
 
+# ── Type cleanup and quick metrics ────────────────────────────────────────────
 df = df.copy()
 df["year"] = pd.to_numeric(df["year"], errors="coerce")
 df = df.dropna(subset=["year", "city_name", "season", "trips"])
@@ -44,6 +48,7 @@ a1.metric("Rows", f"{len(df):,}")
 a2.metric("Cities", f"{df['city_name'].nunique():,}")
 a3.metric("Years", f"{df['year'].nunique():,}")
 
+# ── Sidebar filters ───────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🍂 Seasonal filters")
     all_cities = sorted(df["city_name"].dropna().unique().tolist())
@@ -61,6 +66,7 @@ if plot_df.empty:
     st.warning("No data available for this city selection.")
     st.stop()
 
+# ── Render charts ─────────────────────────────────────────────────────────────
 if selected_city == "All Cities":
     fig = px.bar(
         plot_df,
@@ -90,6 +96,7 @@ else:
 
 st.plotly_chart(fig, use_container_width=True)
 
+# ── Table output ──────────────────────────────────────────────────────────────
 st.subheader("Seasonal data")
 st.dataframe(
     plot_df.sort_values(["city_name", "year", "season"]),

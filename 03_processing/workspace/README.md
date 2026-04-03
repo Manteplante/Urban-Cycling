@@ -2,6 +2,13 @@
 
 Use this folder as the analysis entrypoint, then export final outputs for the app.
 
+## Boundary: notebooks vs app pages
+
+- Notebooks here are for exploration, visual prototyping, and testing assumptions.
+- Production dashboard logic belongs in `04_app/pages/*.py`.
+- Keep notebook outputs contract-first: export clean, predictable tables that app
+	pages can render without notebook-specific logic.
+
 ## 1) Refresh data layers
 
 From project root:
