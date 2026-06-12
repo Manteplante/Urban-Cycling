@@ -29,7 +29,7 @@ def sidebar_filters(
     default_years: list[int] | None = None,
 ) -> GoldQuery:
     all_cities = gold.available_cities() or ["Oslo", "Bergen", "Trondheim"]
-    all_years  = gold.available_years()  or list(range(2020, 2026))
+    all_years  = gold.available_years()  or []
 
     with st.sidebar:
         st.markdown("### ⚙️ Filters")
@@ -90,7 +90,7 @@ def sidebar_filters(
 # Returns (selected_cities: list[str], selected_years: tuple[int]).
 def city_year_filters(key_prefix: str = "") -> tuple:
     all_cities = gold.available_cities() or ["Oslo", "Bergen", "Trondheim"]
-    all_years  = gold.available_years()  or list(range(2020, 2026))
+    all_years  = gold.available_years()  or []
 
     with st.sidebar:
         st.markdown("### ⚙️ Filters")

@@ -1,11 +1,37 @@
 import os
 import datetime
+import argparse
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 import requests
 from enabler import fetch_html, parse_html
 from csv_fetcher import fetch_csv_files
-from csv_cleaner import clean_csv_file, process_directory # clean_csv_file imported even though not used
+from csv_cleaner import clean_csv_file, process_directory
+
+
+MONTH_TO_NUMBER = {
+    "january": 1,
+    "januar": 1,
+    "february": 2,
+    "februar": 2,
+    "march": 3,
+    "mars": 3,
+    "april": 4,
+    "may": 5,
+    "mai": 5,
+    "june": 6,
+    "juni": 6,
+    "july": 7,
+    "juli": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "oktober": 10,
+    "november": 11,
+    "december": 12,
+    "desember": 12,
+}
 
 
 # Calculate the previous month and year
@@ -16,8 +42,22 @@ def get_previous_month():
     first_of_month = datetime.datetime(today.year, today.month, 1)
     last_of_prev_month = first_of_month - datetime.timedelta(days=1)
     
-    # Return year and month name
-    return str(last_of_prev_month.year), last_of_prev_month.strftime('%B').lower()
+    # Return year and month number
+    return str(last_of_prev_month.year), int(last_of_prev_month.month)
+
+
+def extract_month_year(month_year_label: str) -> tuple[int | None, int | None]:
+    text = str(month_year_label or "").lower().replace("oppdatert daglig", "").strip()
+    year_match = re.search(r"(19|20)\d{2}", text)
+    year = int(year_match.group(0)) if year_match else None
+
+    month = None
+    for token in re.split(r"[\s_\-]+", text):
+        if token in MONTH_TO_NUMBER:
+            month = MONTH_TO_NUMBER[token]
+            break
+
+    return month, year
 
 # Scrape CSV files for a specific month
 
@@ -29,8 +69,23 @@ def scrape_csv_for_month(base_url, target_year, target_month):
     soup = parse_html(html_content)
     all_csv_files = fetch_csv_files(soup)
 
-    # Download ALL files (no filtering)
-    return all_csv_files
+    # Keep only rows that match selected year, and optionally month.
+    selected_year = int(str(target_year).strip())
+    selected_month = None if str(target_month).lower() in {"all", "*", "none"} else int(target_month)
+    filtered = []
+    for row in all_csv_files:
+        month, year = extract_month_year(str(row.get("MonthYear", "")))
+        if year != selected_year:
+            continue
+        if selected_month is not None and month != selected_month:
+            continue
+        filtered.append(row)
+
+    if selected_month is None:
+        print(f"Matched {len(filtered)} file(s) for year {selected_year}")
+    else:
+        print(f"Matched {len(filtered)} file(s) for {selected_year}-{selected_month:02d}")
+    return filtered
 
 # Save CSV files to disk
 
@@ -81,7 +136,7 @@ def resolve_env_path(*keys, default_relative):
 def process_monthly_update():
     # Get the target month and year (previous month)
     target_year, target_month = get_previous_month()
-    print(f"Running monthly update for {target_month} {target_year}")
+    print(f"Running monthly update for month {target_month:02d} in {target_year}")
     
     base_urls = {
         "Oslo": "https://oslobysykkel.no/apne-data/historisk",
@@ -134,5 +189,66 @@ def process_monthly_update():
     
     return all_saved_files
 
+
+def process_year_update(target_year: int) -> list[str]:
+    target_year = str(int(target_year))
+    print(f"Running historical update for year {target_year}")
+
+    base_urls = {
+        "Oslo": "https://oslobysykkel.no/apne-data/historisk",
+        "Bergen": "https://bergenbysykkel.no/apne-data/historisk",
+        "Trondheim": "https://trondheimbysykkel.no/apne-data/historisk"
+    }
+
+    folder_paths = {
+        "Oslo": resolve_env_path("BRONZE_OSLO_PATH", "OSLO", default_relative="02_data/bronze/oslo"),
+        "Bergen": resolve_env_path("BRONZE_BERGEN_PATH", "BERGEN", default_relative="02_data/bronze/bergen"),
+        "Trondheim": resolve_env_path("BRONZE_TRONDHEIM_PATH", "TRONDHEIM", default_relative="02_data/bronze/trondheim"),
+    }
+
+    for path in folder_paths.values():
+        os.makedirs(path, exist_ok=True)
+
+    all_saved_files = []
+    for city, url in base_urls.items():
+        print(f"\n===== Scraping {city} for {target_year} =====")
+        csv_files = scrape_csv_for_month(url, target_year=target_year, target_month="all")
+        if not csv_files:
+            print(f"No {target_year} files found for {city}.")
+            continue
+
+        saved_files = save_to_file(csv_files, folder_paths[city])
+        all_saved_files.extend(saved_files)
+        print(f"Completed scraping for {city}. Downloaded {len(saved_files)} file(s) for {target_year}.")
+
+    print("\n===== Starting data cleaning process =====")
+    cleaned_count = 0
+    for file_path in all_saved_files:
+        try:
+            city_name = Path(file_path).parent.name
+            cleaned_df = clean_csv_file(file_path, city=city_name)
+            cleaned_df.to_csv(file_path, index=False)
+            cleaned_count += 1
+            print(f"Cleaned: {file_path}")
+        except Exception as e:
+            print(f"Error cleaning {file_path}: {str(e)}")
+
+    print("\nHistorical update complete!")
+    print(f"- Year: {target_year}")
+    print(f"- Downloaded: {len(all_saved_files)} files")
+    print(f"- Cleaned: {cleaned_count} files")
+
+    return all_saved_files
+
 if __name__ == "__main__":
-    process_monthly_update()
+    parser = argparse.ArgumentParser(description="Scrape Norwegian city-bike data")
+    parser.add_argument("--monthly", action="store_true", help="Run monthly mode for previous month")
+    parser.add_argument("--year", type=int, help="Download and clean only one year, e.g. --year 2025")
+    args = parser.parse_args()
+
+    if args.year:
+        process_year_update(args.year)
+    elif args.monthly:
+        process_monthly_update()
+    else:
+        parser.error("Choose one mode: --year YYYY or --monthly")

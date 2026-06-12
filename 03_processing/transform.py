@@ -198,7 +198,7 @@ def read_bronze(city: str) -> pd.DataFrame:
 
 
 # Stage 1: Read bronze CSVs, standardise, partition by city + year -> silver.
-def run_bronze_to_silver() -> None:
+def run_bronze_to_silver(years: list[int] | None = None) -> None:
     print("\n[Stage 1]  Bronze → Silver")
 
     SILVER_PATH.mkdir(parents=True, exist_ok=True)
@@ -221,6 +221,13 @@ def run_bronze_to_silver() -> None:
         df = df.dropna(subset=["started_at"])
         df["year"] = df["started_at"].dt.year
 
+        if years:
+            selected_years = {int(y) for y in years}
+            df = df[df["year"].isin(selected_years)].copy()
+            if df.empty:
+                print(f"  [skip] {city}: no rows for selected years {sorted(selected_years)}")
+                continue
+
         city_silver = SILVER_PATH / city
         city_silver.mkdir(parents=True, exist_ok=True)
 
@@ -238,18 +245,22 @@ def run_bronze_to_silver() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 # Combine all silver CSVs into one DataFrame.
-def load_all_silver() -> pd.DataFrame:
+def load_all_silver(years: list[int] | None = None) -> pd.DataFrame:
+    selected_years = {int(y) for y in years} if years else None
     frames = []
     for city in CITIES:
         city_silver = SILVER_PATH / city
         if not city_silver.exists():
             continue
         for csv_file in sorted(city_silver.glob("*.csv")):
+            file_year = int(csv_file.stem)
+            if selected_years and file_year not in selected_years:
+                continue
             df = pd.read_csv(csv_file, low_memory=False)
             df = normalise_columns(df)
             df = ensure_station_ids(df, fallback_city=city)
             df["city_id"] = CITY_ID_MAP[city]
-            df["_source_year"] = int(csv_file.stem)
+            df["_source_year"] = file_year
             frames.append(df)
 
     if not frames:
@@ -470,13 +481,13 @@ def build_fact_top_trip_patterns(df: pd.DataFrame, n: int = 10, years: list[int]
 
 
 # Stage 2: Read all silver CSVs -> build star schema -> write gold.
-def run_silver_to_gold() -> None:
+def run_silver_to_gold(years: list[int] | None = None) -> None:
     print("\n[Stage 2]  Silver → Gold")
 
     for path in [FACTS_PATH, DIMENSIONS_PATH, NOTEBOOK_EXPORTS_PATH]:
         path.mkdir(parents=True, exist_ok=True)
 
-    all_data = load_all_silver()
+    all_data = load_all_silver(years=years)
     if all_data.empty:
         print("  [!] No silver data found. Run Stage 1 first.")
         return
@@ -504,7 +515,7 @@ def run_silver_to_gold() -> None:
         print(f"  [gold/fact] fact_trips_{year}: {len(fact_df):>8,} trips")
         total_trips += len(fact_df)
 
-    top_patterns = build_fact_top_trip_patterns(all_data, n=10)
+    top_patterns = build_fact_top_trip_patterns(all_data, n=10, years=years)
     top_patterns_path = FACTS_PATH / "fact_top_trip_patterns.csv"
     top_patterns.to_csv(top_patterns_path, index=False)
     print(f"  [gold/fact] fact_top_trip_patterns: {len(top_patterns):>8,} rows")
@@ -516,17 +527,19 @@ def run_silver_to_gold() -> None:
 #  Full pipeline
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_etl(silver: bool = True, gold: bool = True) -> None:
+def run_etl(silver: bool = True, gold: bool = True, years: list[int] | None = None) -> None:
     print("=" * 66)
     print("  Urban Cycling — Medallion ETL")
     print("  Bronze path : " + str(BRONZE_PATH))
     print("  Silver path : " + str(SILVER_PATH))
     print("  Gold path   : " + str(GOLD_PATH))
+    if years:
+        print("  Year filter : " + ", ".join(str(int(y)) for y in sorted(set(years))))
     print("=" * 66)
     if silver:
-        run_bronze_to_silver()
+        run_bronze_to_silver(years=years)
     if gold:
-        run_silver_to_gold()
+        run_silver_to_gold(years=years)
     print("\n  Done.\n")
 
 
@@ -560,10 +573,10 @@ if __name__ == "__main__":
     if args.top_patterns:
         run_gold_top_patterns_only(years=args.years)
     elif args.silver and not args.gold:
-        run_etl(silver=True, gold=False)
+        run_etl(silver=True, gold=False, years=args.years)
     elif args.gold and not args.silver:
-        run_etl(silver=False, gold=True)
+        run_etl(silver=False, gold=True, years=args.years)
     else:
-        run_etl()
+        run_etl(years=args.years)
 
 

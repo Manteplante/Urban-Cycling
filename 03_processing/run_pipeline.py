@@ -2,6 +2,8 @@
 #
 # Run from the project root:
 #     python 03_processing/run_pipeline.py            # full pipeline (bronze -> gold)
+#     python 03_processing/run_pipeline.py --years 2025
+#                                                   # run bronze -> gold only for selected year(s)
 #     python 03_processing/run_pipeline.py --silver   # bronze -> silver only
 #     python 03_processing/run_pipeline.py --gold     # silver -> gold only
 #     python 03_processing/run_pipeline.py --top-patterns [--years 2024 2025]
@@ -61,7 +63,7 @@ if __name__ == "__main__":
     parser.add_argument("--silver", action="store_true", help="Bronze → Silver only")
     parser.add_argument("--gold",   action="store_true", help="Silver → Gold only")
     parser.add_argument("--top-patterns", action="store_true", help="Rebuild only fact_top_trip_patterns.csv")
-    parser.add_argument("--years", nargs="+", type=int, help="Optional year filter for --top-patterns")
+    parser.add_argument("--years", nargs="+", type=int, help="Optional year filter for ETL and --top-patterns")
     parser.add_argument("--status", action="store_true", help="Show layer status and exit")
     args = parser.parse_args()
 
@@ -77,11 +79,11 @@ if __name__ == "__main__":
     if args.top_patterns:
         run_gold_top_patterns_only(years=args.years)
     elif args.silver and not args.gold:
-        run_etl(silver=True, gold=False)
+        run_etl(silver=True, gold=False, years=args.years)
     elif args.gold and not args.silver:
-        run_etl(silver=False, gold=True)
+        run_etl(silver=False, gold=True, years=args.years)
     else:
-        run_etl(silver=True, gold=True)
+        run_etl(silver=True, gold=True, years=args.years)
 
     print("\n  ─── Final status ───")
     layer_status()
