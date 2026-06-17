@@ -34,6 +34,28 @@ def resolve_env_path(var_name: str, default_relative: str) -> Path:
 _GOLD_PATH       = resolve_env_path("GOLD_PATH", "02_data/gold")
 _FACTS_PATH      = resolve_env_path("FACTS_PATH", "02_data/gold/facts")
 _DIMENSIONS_PATH = resolve_env_path("DIMENSIONS_PATH", "02_data/gold/dimensions")
+_GOLD_PUBLIC_BASE_URL = (os.getenv("GOLD_PUBLIC_BASE_URL") or "").strip().rstrip("/")
+_AVAILABLE_YEARS = (os.getenv("AVAILABLE_YEARS") or "").strip()
+
+
+def _remote_url(relative_path: str) -> Optional[str]:
+    if not _GOLD_PUBLIC_BASE_URL:
+        return None
+    return f"{_GOLD_PUBLIC_BASE_URL}/{relative_path.lstrip('/')}"
+
+
+def _read_csv_with_fallback(local_path: Path, remote_relative_path: str, **kwargs) -> pd.DataFrame:
+    if local_path.exists():
+        return pd.read_csv(local_path, **kwargs)
+
+    remote = _remote_url(remote_relative_path)
+    if not remote:
+        return pd.DataFrame()
+
+    try:
+        return pd.read_csv(remote, **kwargs)
+    except Exception:
+        return pd.DataFrame()
 
 
 def cache_data(ttl: int = 3600):
@@ -86,45 +108,62 @@ _SCHEMA_REFERENCE_LINES = [
 def cities() -> pd.DataFrame:
     path = _DIMENSIONS_PATH / "dim_city.csv"
     if not path.exists():
+        remote_df = _read_csv_with_fallback(path, "dimensions/dim_city.csv")
+        if not remote_df.empty:
+            return remote_df
+
         return pd.DataFrame({
             "city_id":      [1,       2,         3],
             "city_name":    ["oslo",  "bergen",  "trondheim"],
             "display_name": ["Oslo",  "Bergen",  "Trondheim"],
             "country":      ["Norway","Norway",  "Norway"],
         })
-    return pd.read_csv(path)
+    return _read_csv_with_fallback(path, "dimensions/dim_city.csv")
 
 
 @cache_data(ttl=3600)
 def stations() -> pd.DataFrame:
     path = _DIMENSIONS_PATH / "dim_stations.csv"
-    if not path.exists():
+    df = _read_csv_with_fallback(path, "dimensions/dim_stations.csv")
+    if df.empty:
         return pd.DataFrame(columns=["station_id","station_name","latitude","longitude","city_id"])
-    return pd.read_csv(path)
+    return df
 
 
 @cache_data(ttl=3600)
 def dates() -> pd.DataFrame:
     path = _DIMENSIONS_PATH / "dim_date.csv"
-    if not path.exists():
-        return pd.DataFrame()
-    return pd.read_csv(path, parse_dates=["date"])
+    return _read_csv_with_fallback(path, "dimensions/dim_date.csv", parse_dates=["date"])
 
 
 @cache_data(ttl=3600)
 def available_years() -> list[int]:
-    if not _FACTS_PATH.exists():
+    if _FACTS_PATH.exists():
+        years = sorted(
+            int(f.stem.split("_")[-1])
+            for f in _FACTS_PATH.glob("fact_trips_*.csv")
+        )
+        if years:
+            return years
+
+    if not _AVAILABLE_YEARS:
         return []
-    return sorted(
-        int(f.stem.split("_")[-1])
-        for f in _FACTS_PATH.glob("fact_trips_*.csv")
-    )
+
+    parsed: list[int] = []
+    for token in _AVAILABLE_YEARS.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            parsed.append(int(token))
+        except ValueError:
+            continue
+
+    return sorted(set(parsed))
 
 
 @cache_data(ttl=3600)
 def facts(years: tuple[int, ...]) -> pd.DataFrame:
-    if not _FACTS_PATH.exists():
-        return pd.DataFrame()
     frames = []
     for yr in years:
         p = _FACTS_PATH / f"fact_trips_{yr}.csv"
@@ -132,15 +171,26 @@ def facts(years: tuple[int, ...]) -> pd.DataFrame:
             df = pd.read_csv(p)
             df["year"] = yr
             frames.append(df)
+            continue
+
+        remote = _remote_url(f"facts/fact_trips_{yr}.csv")
+        if not remote:
+            continue
+
+        try:
+            df = pd.read_csv(remote)
+            df["year"] = yr
+            frames.append(df)
+        except Exception:
+            continue
+
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
 @cache_data(ttl=3600)
 def top_trip_patterns() -> pd.DataFrame:
     path = _FACTS_PATH / "fact_top_trip_patterns.csv"
-    if not path.exists():
-        return pd.DataFrame()
-    return pd.read_csv(path)
+    return _read_csv_with_fallback(path, "facts/fact_top_trip_patterns.csv")
 
 
 @cache_data(ttl=3600)

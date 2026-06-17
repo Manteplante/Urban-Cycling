@@ -1,0 +1,39 @@
+name: ci-community
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    name: Validate App And Pipeline Contracts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Compile source tree
+        run: python -m compileall 01_scraper 03_processing 04_app
+
+      - name: Enforce app gold-only guardrail
+        run: python 03_processing/ci/check_app_gold_only.py
+
+      - name: Smoke import Streamlit app services
+        run: |
+          python -c "import sys; sys.path.insert(0, '04_app'); import services.gold as g; import services.notebook_outputs as n; print('smoke-ok', len(g.available_years()), n.exports_exist())"
+
+      - name: Validate remote gold endpoints
+        run: python 03_processing/ci/check_remote_gold_availability.py

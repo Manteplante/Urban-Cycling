@@ -96,7 +96,13 @@ Place source CSV files in:
 Or fetch latest source files:
 
 ```bash
-python 01_scraper/scraper_main.py
+python 01_scraper/scraper_main.py --monthly
+```
+
+Or fetch all available months for one specific year:
+
+```bash
+python 01_scraper/scraper_main.py --year 2025
 ```
 
 ### 4. Build Silver and Gold
@@ -172,4 +178,65 @@ Examples:
 3. Open notebooks in `03_processing/workspace/` and process topic dataframes.
 4. Export dataframe/figure artifacts to `02_data/gold/notebook_exports/`.
 5. Streamlit page files in `04_app/pages/` read those exports and render maps/visuals.
+
+---
+
+## Streamlit Community Cloud deployment foundation
+
+This repository now targets Streamlit Community Cloud behavior:
+
+- You deploy by selecting repository + branch + main file path
+- App runs in Streamlit-managed environment (not on your local PC)
+- CI is GitHub-hosted and focused on code/app contract validation
+
+### CI workflow
+
+Workflow file: `.github/workflows/ci-community.yml`
+
+It runs on push/PR and performs:
+
+1. Dependency install
+2. Python compile check across scraper/processing/app
+3. Gold-only app guardrail (`03_processing/ci/check_app_gold_only.py`)
+4. Smoke imports for Streamlit service modules
+
+### Deploy in Streamlit Community Cloud
+
+1. Open Streamlit Community Cloud.
+2. Choose this repository and branch `main`.
+3. Set main file path to `04_app/home.py`.
+4. Add app secrets (in Streamlit settings) when needed.
+
+### Data behavior for cloud deployments
+
+Community Cloud containers do not have your local disk. This app supports two modes:
+
+1. Local/repo mode: read from `02_data/gold/*` when files exist.
+2. Remote gold mode: set `GOLD_PUBLIC_BASE_URL` and `AVAILABLE_YEARS` so the app reads gold CSVs from a hosted URL.
+
+Expected remote URL layout:
+
+```
+<base>/dimensions/dim_city.csv
+<base>/dimensions/dim_stations.csv
+<base>/dimensions/dim_date.csv
+<base>/facts/fact_trips_2024.csv
+<base>/facts/fact_trips_2025.csv
+<base>/facts/fact_top_trip_patterns.csv
+```
+
+Set these in Streamlit secrets (or environment):
+
+- `GOLD_PUBLIC_BASE_URL`
+- `AVAILABLE_YEARS` (example: `2024,2025`)
+
+### Optional pre-deploy endpoint validation in GitHub Actions
+
+If you fill in `.github/community-cloud-config.json` with:
+
+- `gold_public_base_url`
+- `available_years`
+
+then CI workflow `.github/workflows/ci-community.yml` will verify that the
+required remote gold CSV endpoints are reachable before deployment updates.
 
