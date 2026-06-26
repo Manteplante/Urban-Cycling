@@ -23,6 +23,7 @@ from config import (
     GOLD_PATH, FACTS_PATH, DIMENSIONS_PATH, NOTEBOOK_EXPORTS_PATH,
     CITIES, CITY_ID_MAP, CITY_DISPLAY_MAP, ID_CITY_MAP,
 )
+from gcs_storage import gcs_publish_enabled, upload_file
 
 MONTH_NAMES = {
     1: "January", 2: "February", 3: "March", 4: "April",
@@ -494,6 +495,8 @@ def run_silver_to_gold(years: list[int] | None = None) -> None:
 
     print(f"  Combined silver rows: {len(all_data):,}")
 
+    publish_to_gcs = gcs_publish_enabled()
+
     # Dimensions
     dim_city     = build_dim_city()
     dim_stations = build_dim_stations(all_data)
@@ -503,6 +506,11 @@ def run_silver_to_gold(years: list[int] | None = None) -> None:
     dim_stations.to_csv(DIMENSIONS_PATH / "dim_stations.csv", index=False)
     dim_date.to_csv(DIMENSIONS_PATH / "dim_date.csv", index=False)
 
+    if publish_to_gcs:
+        print(f"  [gcs] {upload_file(DIMENSIONS_PATH / 'dim_city.csv', 'dimensions/dim_city.csv')}")
+        print(f"  [gcs] {upload_file(DIMENSIONS_PATH / 'dim_stations.csv', 'dimensions/dim_stations.csv')}")
+        print(f"  [gcs] {upload_file(DIMENSIONS_PATH / 'dim_date.csv', 'dimensions/dim_date.csv')}")
+
     print(f"  [gold/dim] dim_city:     {len(dim_city):>6,} rows")
     print(f"  [gold/dim] dim_stations: {len(dim_stations):>6,} rows")
     print(f"  [gold/dim] dim_date:     {len(dim_date):>6,} rows")
@@ -511,13 +519,18 @@ def run_silver_to_gold(years: list[int] | None = None) -> None:
     facts_by_year = build_fact_trips(all_data)
     total_trips   = 0
     for year, fact_df in sorted(facts_by_year.items()):
-        fact_df.to_csv(FACTS_PATH / f"fact_trips_{year}.csv", index=False)
+        fact_path = FACTS_PATH / f"fact_trips_{year}.csv"
+        fact_df.to_csv(fact_path, index=False)
         print(f"  [gold/fact] fact_trips_{year}: {len(fact_df):>8,} trips")
+        if publish_to_gcs:
+            print(f"  [gcs] {upload_file(fact_path, f'facts/fact_trips_{year}.csv')}")
         total_trips += len(fact_df)
 
     top_patterns = build_fact_top_trip_patterns(all_data, n=10, years=years)
     top_patterns_path = FACTS_PATH / "fact_top_trip_patterns.csv"
     top_patterns.to_csv(top_patterns_path, index=False)
+    if publish_to_gcs:
+        print(f"  [gcs] {upload_file(top_patterns_path, 'facts/fact_top_trip_patterns.csv')}")
     print(f"  [gold/fact] fact_top_trip_patterns: {len(top_patterns):>8,} rows")
 
     print(f"  Total gold trips: {total_trips:,}")
@@ -556,6 +569,8 @@ def run_gold_top_patterns_only(years: list[int] | None = None) -> None:
     top_patterns = build_fact_top_trip_patterns(all_data, n=10, years=years)
     top_patterns_path = FACTS_PATH / "fact_top_trip_patterns.csv"
     top_patterns.to_csv(top_patterns_path, index=False)
+    if gcs_publish_enabled():
+        print(f"  [gcs] {upload_file(top_patterns_path, 'facts/fact_top_trip_patterns.csv')}")
 
     years_txt = f" for years {sorted(set(years))}" if years else ""
     print(f"  [gold/fact] fact_top_trip_patterns{years_txt}: {len(top_patterns):>8,} rows")

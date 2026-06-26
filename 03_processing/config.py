@@ -39,8 +39,22 @@ NOTEBOOK_EXPORTS_PATH = resolve_env_path(
 	str(Path("02_data") / "gold" / "notebook_exports"),
 )
 
+# Optional GCS publishing for gold artefacts
+GOLD_GCS_UPLOAD = (os.getenv("GOLD_GCS_UPLOAD") or "false").strip().lower() in {"1", "true", "yes", "on"}
+GOLD_GCS_BUCKET = (os.getenv("GOLD_GCS_BUCKET") or "").strip()
+GOLD_GCS_PREFIX = (os.getenv("GOLD_GCS_PREFIX") or "").strip().strip("/")
+GCS_PROJECT = (os.getenv("GCS_PROJECT") or "").strip()
+GCS_SERVICE_ACCOUNT_FILE = (os.getenv("GCS_SERVICE_ACCOUNT_FILE") or "").strip()
+
 # City constants
 CITIES          = ["oslo", "bergen", "trondheim"]
 CITY_ID_MAP     = {"oslo": 1, "bergen": 2, "trondheim": 3}
 ID_CITY_MAP     = {1: "oslo", 2: "bergen", 3: "trondheim"}
 CITY_DISPLAY_MAP = {"oslo": "Oslo", "bergen": "Bergen", "trondheim": "Trondheim"}
+
+
+def gcs_object_path(*parts: str) -> str:
+	cleaned = [part.strip("/") for part in parts if part and part.strip("/")]
+	if GOLD_GCS_PREFIX:
+		return "/".join([GOLD_GCS_PREFIX, *cleaned])
+	return "/".join(cleaned)

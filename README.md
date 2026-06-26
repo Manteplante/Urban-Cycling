@@ -111,6 +111,24 @@ python 01_scraper/scraper_main.py --year 2025
 python 03_processing/run_pipeline.py
 ```
 
+Optional GCS publish mode:
+
+```bash
+$env:GOLD_GCS_UPLOAD="true"
+$env:GOLD_GCS_BUCKET="your-private-bucket"
+$env:GCS_PROJECT="your-gcp-project"
+$env:GCS_SERVICE_ACCOUNT_FILE="cloud-key.json"
+python 03_processing/run_pipeline.py
+```
+
+This keeps local files in `02_data/gold/` and additionally uploads the same artefacts to:
+
+```text
+gs://<bucket>/dimensions/*
+gs://<bucket>/facts/*
+gs://<bucket>/notebook_exports/*
+```
+
 ### 5. Start the app
 
 ```bash
@@ -213,6 +231,20 @@ Community Cloud containers do not have your local disk. This app supports two mo
 
 1. Local/repo mode: read from `02_data/gold/*` when files exist.
 2. Remote gold mode: set `GOLD_PUBLIC_BASE_URL` and `AVAILABLE_YEARS` so the app reads gold CSVs from a hosted URL.
+3. Private GCS mode: set `GOLD_GCS_BUCKET` and Streamlit GCS secrets so the app reads from Google Cloud Storage first and falls back to local files.
+
+Private GCS mode uses the same object layout as local gold:
+
+```text
+gs://<bucket>/dimensions/dim_city.csv
+gs://<bucket>/dimensions/dim_stations.csv
+gs://<bucket>/dimensions/dim_date.csv
+gs://<bucket>/facts/fact_trips_2024.csv
+gs://<bucket>/facts/fact_trips_2025.csv
+gs://<bucket>/facts/fact_top_trip_patterns.csv
+gs://<bucket>/notebook_exports/<export>.csv
+gs://<bucket>/notebook_exports/<figure>.png
+```
 
 Expected remote URL layout:
 
@@ -229,6 +261,36 @@ Set these in Streamlit secrets (or environment):
 
 - `GOLD_PUBLIC_BASE_URL`
 - `AVAILABLE_YEARS` (example: `2024,2025`)
+
+For private GCS-backed Streamlit reads, add these environment variables:
+
+- `GOLD_GCS_BUCKET`
+- `GOLD_GCS_PREFIX` (optional, leave empty for bucket root)
+- `AVAILABLE_YEARS` if you want a fallback year list when remote listing is unavailable
+
+And add this to `.streamlit/secrets.toml`:
+
+```toml
+[connections.gcs]
+type = "service_account"
+project_id = "xxx"
+private_key_id = "xxx"
+private_key = "xxx"
+client_email = "xxx"
+client_id = "xxx"
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri = "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url = "xxx"
+```
+
+For ETL-side uploads outside Streamlit, set these environment variables before running the pipeline:
+
+- `GOLD_GCS_UPLOAD=true`
+- `GOLD_GCS_BUCKET=<bucket-name>`
+- `GOLD_GCS_PREFIX=<optional-prefix>`
+- `GCS_PROJECT=<gcp-project-id>`
+- `GCS_SERVICE_ACCOUNT_FILE=<path-to-service-account-json>`
 
 ### Optional pre-deploy endpoint validation in GitHub Actions
 

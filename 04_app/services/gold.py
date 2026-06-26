@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 
+from services.gcs_storage import gcs_enabled, gcs_exists, gcs_list, gcs_read_csv
+
 try:
     import streamlit as st
     import streamlit.runtime as st_runtime
@@ -45,6 +47,11 @@ def _remote_url(relative_path: str) -> Optional[str]:
 
 
 def _read_csv_with_fallback(local_path: Path, remote_relative_path: str, **kwargs) -> pd.DataFrame:
+    if gcs_enabled() and gcs_exists(remote_relative_path):
+        remote_df = gcs_read_csv(remote_relative_path, **kwargs)
+        if not remote_df.empty:
+            return remote_df
+
     if local_path.exists():
         return pd.read_csv(local_path, **kwargs)
 
@@ -138,6 +145,16 @@ def dates() -> pd.DataFrame:
 
 @cache_data(ttl=3600)
 def available_years() -> list[int]:
+    if gcs_enabled():
+        entries = gcs_list("facts")
+        years = sorted(
+            int(Path(str(entry.get("name") or "")).stem.split("_")[-1])
+            for entry in entries
+            if Path(str(entry.get("name") or "")).name.startswith("fact_trips_")
+        )
+        if years:
+            return years
+
     if _FACTS_PATH.exists():
         years = sorted(
             int(f.stem.split("_")[-1])
@@ -167,13 +184,22 @@ def facts(years: tuple[int, ...]) -> pd.DataFrame:
     frames = []
     for yr in years:
         p = _FACTS_PATH / f"fact_trips_{yr}.csv"
+        remote_relative_path = f"facts/fact_trips_{yr}.csv"
+
+        if gcs_enabled() and gcs_exists(remote_relative_path):
+            df = gcs_read_csv(remote_relative_path)
+            if not df.empty:
+                df["year"] = yr
+                frames.append(df)
+                continue
+
         if p.exists():
             df = pd.read_csv(p)
             df["year"] = yr
             frames.append(df)
             continue
 
-        remote = _remote_url(f"facts/fact_trips_{yr}.csv")
+        remote = _remote_url(remote_relative_path)
         if not remote:
             continue
 

@@ -18,6 +18,7 @@ from config import (
     NOTEBOOK_EXPORTS_PATH,
     SILVER_PATH,
 )
+from gcs_storage import gcs_publish_enabled, upload_file
 
 NOTEBOOK_EXPORTS_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -95,6 +96,8 @@ def export_df(name: str, df: pd.DataFrame) -> Path:
     out = NOTEBOOK_EXPORTS_PATH / f"{name}.csv"
     df.to_csv(out, index=False)
     print(f"[bridge] Exported DataFrame: {out.name} (target: NOTEBOOK_EXPORTS_PATH)")
+    if gcs_publish_enabled():
+        print(f"[bridge] Published to GCS: {upload_file(out, f'notebook_exports/{out.name}')}")
     return out
 
 
@@ -104,6 +107,8 @@ def export_figure(name: str, fig, dpi: int = 150) -> Path:
     out = NOTEBOOK_EXPORTS_PATH / f"{name}.png"
     fig.savefig(out, dpi=dpi, bbox_inches="tight")
     print(f"[bridge] Exported figure: {out.name} (target: NOTEBOOK_EXPORTS_PATH)")
+    if gcs_publish_enabled():
+        print(f"[bridge] Published to GCS: {upload_file(out, f'notebook_exports/{out.name}')}")
     return out
 
 

@@ -11,6 +11,8 @@ from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
 
+from services.gcs_storage import gcs_any_match, gcs_enabled, gcs_list, gcs_read_csv
+
 PROJECT_ROOT      = Path(__file__).parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
@@ -28,6 +30,8 @@ EXPORTS_PATH = resolve_env_path("NOTEBOOK_EXPORTS_PATH", "02_data/gold/notebook_
 
 # Return True if the notebook_exports directory has any artefacts.
 def exports_exist() -> bool:
+    if gcs_enabled() and gcs_any_match("notebook_exports", suffixes=(".csv", ".png")):
+        return True
     if not EXPORTS_PATH.exists():
         return False
     return any(EXPORTS_PATH.iterdir())
@@ -36,6 +40,29 @@ def exports_exist() -> bool:
 @st.cache_data(ttl=60)   # short TTL so new exports appear quickly
 # Return artefact metadata sorted by modification time (newest first).
 def list_exports() -> list[dict]:
+    if gcs_enabled():
+        artefacts = []
+        for entry in gcs_list("notebook_exports"):
+            name = Path(str(entry.get("name") or "")).name
+            suffix = Path(name).suffix.lower()
+            if suffix == ".csv":
+                kind = "dataframe"
+            elif suffix == ".png":
+                kind = "figure"
+            else:
+                continue
+
+            artefacts.append({
+                "name": Path(name).stem,
+                "filename": name,
+                "kind": kind,
+                "path": str(entry.get("name") or ""),
+                "modified": str(entry.get("updated") or ""),
+            })
+
+        if artefacts:
+            return sorted(artefacts, key=lambda x: x["filename"], reverse=True)
+
     if not EXPORTS_PATH.exists():
         return []
 
@@ -63,6 +90,11 @@ def list_exports() -> list[dict]:
 # Load a CSV export by filename.
 def load_export_df(filename: str) -> pd.DataFrame:
     path = EXPORTS_PATH / filename
+    if gcs_enabled():
+        remote_df = gcs_read_csv(f"notebook_exports/{filename}")
+        if not remote_df.empty:
+            return remote_df
+
     if not path.exists():
         return pd.DataFrame()
     try:
