@@ -1,0 +1,32 @@
+name: Urban Cycling Monthly Data Scraper
+
+on:
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'Month to scrape (optional, defaults to previous month)'
+        required: false
+        default: ''
+
+jobs:
+  scrape:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run scraper
+        run: |
+          cd 01_scraper
+          python main_data_fetcher_cleaner_month_automator.py
