@@ -26,6 +26,7 @@ from config import (
     SILVER_PATH,
 )
 from transform import run_etl, run_gold_top_patterns_only
+from run_notebooks import run_workspace_notebooks
 
 
 # ── Layer status ───────────────────────────────────────────────────────────────
@@ -76,6 +77,8 @@ if __name__ == "__main__":
     if args.status:
         sys.exit(0)
 
+    should_run_notebooks = False
+
     if args.top_patterns:
         run_gold_top_patterns_only(years=args.years)
     elif args.silver and not args.gold:
@@ -84,6 +87,11 @@ if __name__ == "__main__":
         run_etl(silver=False, gold=True, years=args.years)
     else:
         run_etl(silver=True, gold=True, years=args.years)
+        should_run_notebooks = True
+
+    if should_run_notebooks:
+        print("\n  ─── Notebook workspace refresh ───")
+        run_workspace_notebooks(kernel_name="urban-cycling", timeout=1200)
 
     print("\n  ─── Final status ───")
     layer_status()

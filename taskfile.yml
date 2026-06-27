@@ -30,8 +30,9 @@ tasks:
       - echo "========================"
       - echo ""
       - echo "ENVIRONMENT"
-      - echo "  task setup                    -> uv sync --frozen"
+      - echo "  task setup                    -> uv sync --frozen ; task notebook:kernel"
       - echo "  task sync                     -> uv sync"
+      - echo "  task notebook:kernel          -> uv run python 03_processing/install_notebook_kernel.py"
       - echo ""
       - echo "APPLICATION"
       - echo "  task app                      -> uv run streamlit run 04_app/home.py"
@@ -51,6 +52,7 @@ tasks:
       - echo "  task pipeline:top-patterns    -> uv run python 03_processing/run_pipeline.py --top-patterns"
       - echo "  task pipeline:top-patterns:years YEARS='2024 2025'"
       - echo "                                -> uv run python 03_processing/run_pipeline.py --top-patterns --years 2024 2025"
+      - echo "  task notebooks:run            -> uv run python 03_processing/run_notebooks.py"
       - echo ""
       - echo "CI AND QUALITY"
       - echo "  task ci:compile               -> uv run python -m compileall 01_scraper 03_processing 04_app"
@@ -67,14 +69,20 @@ tasks:
   # ENVIRONMENT
   # --------------------------------------------------------------------------
   setup:
-    desc: Sync dependencies into .venv from uv.lock
+    desc: Sync dependencies into .venv and install notebook kernel
     cmds:
       - uv sync --frozen
+      - task notebook:kernel
 
   sync:
     desc: Sync dependencies (non-frozen)
     cmds:
       - uv sync
+
+  notebook:kernel:
+    desc: Install or refresh Jupyter kernel for this repo
+    cmds:
+      - uv run python 03_processing/install_notebook_kernel.py --name urban-cycling --display-name "Urban Cycling (.venv)"
 
   # --------------------------------------------------------------------------
   # APPLICATION
@@ -145,6 +153,11 @@ tasks:
       vars: [YEARS]
     cmds:
       - uv run python 03_processing/run_pipeline.py --top-patterns --years {{.YEARS}}
+
+  notebooks:run:
+    desc: Execute all processing workspace notebooks (fail on first error)
+    cmds:
+      - uv run python 03_processing/run_notebooks.py --kernel-name urban-cycling
 
   # --------------------------------------------------------------------------
   # CI AND QUALITY

@@ -130,7 +130,7 @@ cd Urban-Cycling
 task setup
 ```
 
-`task setup` runs `uv sync --frozen` and creates a local `.venv` in the repository root.
+`task setup` runs `uv sync --frozen`, creates a local `.venv` in the repository root, and installs the project notebook kernel (`urban-cycling`) used by workspace notebooks.
 
 ### 3. Create local env file
 
@@ -167,6 +167,9 @@ task scrape:year YEAR=2025
 
 # Run full Bronze -> Silver -> Gold pipeline
 task pipeline
+
+# Run notebooks only (rebuild notebook_exports without rerunning ETL)
+task notebooks:run
 
 # Show data layer status only
 task pipeline:status
@@ -263,10 +266,12 @@ Examples:
 ## End-to-end flow used in this repo
 
 1. Scrape or drop raw monthly CSVs into Bronze.
-2. Run pipeline to build Silver and Gold.
-3. Open notebooks in `03_processing/workspace/` and process topic dataframes.
-4. Export dataframe/figure artifacts to `02_data/gold/notebook_exports/`.
+2. Run full pipeline to build Silver and Gold.
+3. During full pipeline runs, workspace notebooks execute automatically and refresh `02_data/gold/notebook_exports/`.
+4. Notebook export helpers write artefacts locally and publish to GCS when `GOLD_GCS_UPLOAD=true`.
 5. Streamlit page files in `04_app/pages/` read those exports and render maps/visuals.
+
+Notebook auto-execution is enabled for full pipeline runs and intentionally not triggered for `--silver`, `--gold`, and `--top-patterns` modes.
 
 ---
 
