@@ -1,0 +1,135 @@
+version: "3"
+
+tasks:
+  # --------------------------------------------------------------------------
+  # HELP
+  # --------------------------------------------------------------------------
+  default:
+    desc: Show all available tasks
+    cmds:
+      - task --list-all
+
+  help:
+    desc: Show all available tasks
+    cmds:
+      - task --list-all
+
+  # --------------------------------------------------------------------------
+  # ENVIRONMENT
+  # --------------------------------------------------------------------------
+  setup:
+    desc: Sync dependencies into .venv from uv.lock
+    cmds:
+      - uv sync --frozen
+
+  sync:
+    desc: Sync dependencies (non-frozen)
+    cmds:
+      - uv sync
+
+  # --------------------------------------------------------------------------
+  # APPLICATION
+  # --------------------------------------------------------------------------
+  app:
+    desc: Run Streamlit app (home page)
+    cmds:
+      - uv run streamlit run 04_app/home.py
+
+  # --------------------------------------------------------------------------
+  # SCRAPING
+  # --------------------------------------------------------------------------
+  scrape:monthly:
+    desc: Scrape previous month for all cities
+    cmds:
+      - uv run python 01_scraper/scraper_main.py --monthly
+
+  scrape:year:
+    desc: Scrape one year (usage: task scrape:year YEAR=2025)
+    requires:
+      vars: [YEAR]
+    cmds:
+      - uv run python 01_scraper/scraper_main.py --year {{.YEAR}}
+
+  # --------------------------------------------------------------------------
+  # PIPELINE
+  # --------------------------------------------------------------------------
+  pipeline:
+    desc: Run full medallion pipeline (bronze -> silver -> gold)
+    cmds:
+      - uv run python 03_processing/run_pipeline.py
+
+  pipeline:full:
+    desc: Run full medallion pipeline (bronze -> silver -> gold)
+    cmds:
+      - uv run python 03_processing/run_pipeline.py
+
+  pipeline:status:
+    desc: Show layer status
+    cmds:
+      - uv run python 03_processing/run_pipeline.py --status
+
+  pipeline:silver:
+    desc: Run bronze -> silver only
+    cmds:
+      - uv run python 03_processing/run_pipeline.py --silver
+
+  pipeline:gold:
+    desc: Run silver -> gold only
+    cmds:
+      - uv run python 03_processing/run_pipeline.py --gold
+
+  pipeline:years:
+    desc: Full pipeline for selected years (usage: task pipeline:years YEARS="2024 2025")
+    requires:
+      vars: [YEARS]
+    cmds:
+      - uv run python 03_processing/run_pipeline.py --years {{.YEARS}}
+
+  pipeline:top-patterns:
+    desc: Rebuild fact_top_trip_patterns.csv for all available years
+    cmds:
+      - uv run python 03_processing/run_pipeline.py --top-patterns
+
+  pipeline:top-patterns:years:
+    desc: Rebuild fact_top_trip_patterns.csv for selected years (usage: task pipeline:top-patterns:years YEARS="2024 2025")
+    requires:
+      vars: [YEARS]
+    cmds:
+      - uv run python 03_processing/run_pipeline.py --top-patterns --years {{.YEARS}}
+
+  # --------------------------------------------------------------------------
+  # CI AND QUALITY
+  # --------------------------------------------------------------------------
+  ci:compile:
+    desc: Compile-check source tree
+    cmds:
+      - uv run python -m compileall 01_scraper 03_processing 04_app
+
+  ci:gold-only:
+    desc: Validate app gold-only data access contract
+    cmds:
+      - uv run python 03_processing/ci/check_app_gold_only.py
+
+  ci:smoke:
+    desc: Smoke import app service layer
+    cmds:
+      - uv run python -c "import sys; sys.path.insert(0, '04_app'); import services.gold as g, services.notebook_outputs as n; print('smoke-ok', len(g.available_years()), n.exports_exist())"
+
+  ci:remote:
+    desc: Validate remote gold endpoints (usage: task ci:remote BASE_URL=https://... YEARS=2024,2025)
+    requires:
+      vars: [BASE_URL, YEARS]
+    cmds:
+      - uv run python 03_processing/ci/check_remote_gold_availability.py --base-url {{.BASE_URL}} --years {{.YEARS}}
+
+  ci:
+    desc: Run local CI-equivalent checks
+    deps: [ci:compile, ci:gold-only, ci:smoke]
+
+  # --------------------------------------------------------------------------
+  # MAINTENANCE
+  # --------------------------------------------------------------------------
+  clean:pycache:
+    desc: Remove Python cache artifacts
+    cmds:
+      - uv run python -c "import pathlib, shutil; [shutil.rmtree(p, ignore_errors=True) for p in pathlib.Path('.').rglob('__pycache__')]; [p.unlink() for p in pathlib.Path('.').rglob('*.pyc')]"
