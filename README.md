@@ -70,7 +70,6 @@ The repository has one clear flow: scrape -> pipeline -> notebook processing wor
 │   └── utils/
 ├── pyproject.toml
 ├── README.md
-├── requirements.txt
 ├── Taskfile.yml
 └── uv.lock
 ```
@@ -84,7 +83,7 @@ This repository uses:
 - `uv` for Python dependency and environment management
 - `Taskfile.yml` as the cross-platform command runner (Windows + Linux + macOS)
 
-On Windows, this project standardizes on **Chocolatey** for CLI tool installation.
+`uv` is used here as a standalone tool. The setup below follows the same standalone-install approach described in the Real Python uv guide [https://realpython.com/python-uv/] while keeping Windows onboarding standardized around **Chocolatey** [https://chocolatey.org/install]
 
 ### 1. Install required CLIs
 
@@ -96,6 +95,12 @@ choco install uv -y
 
 # Install task (Go Task)
 choco install go-task -y
+```
+
+If you prefer the standalone installer directly, `uv` also supports:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 Linux / macOS:
@@ -202,11 +207,6 @@ uv run python 03_processing/run_pipeline.py --status
 uv run python 01_scraper/scraper_main.py --year 2025
 ```
 
-### 8. Legacy requirements file
-
-`requirements.txt` is retained as a compatibility bridge for now, but `pyproject.toml`
-and `uv.lock` are the source of truth for dependencies.
-
 ---
 
 ## ETL pipeline contract
@@ -296,80 +296,14 @@ It runs on push/PR and performs:
 3. Set main file path to `04_app/home.py`.
 4. Add app secrets (in Streamlit settings) when needed.
 
-### Data behavior for cloud deployments
+### Why Google Cloud is used in this project
 
-Community Cloud containers do not have your local disk. This app supports two modes:
+This project uses Google Cloud because the bike-share datasets are large enough to grow into millions of rows across cities and years. That makes them a poor fit for storing directly in GitHub in the same way you might keep a much smaller survey dataset in a repo.
 
-1. Local/repo mode: read from `02_data/gold/*` when files exist.
-2. Remote gold mode: set `GOLD_PUBLIC_BASE_URL` and `AVAILABLE_YEARS` so the app reads gold CSVs from a hosted URL.
-3. Private GCS mode: set `GOLD_GCS_BUCKET` and Streamlit GCS secrets so the app reads from Google Cloud Storage first and falls back to local files.
+In practice, the repository keeps the code, pipeline, and local development structure, while larger analytical outputs can be stored outside GitHub and read back into the app when needed.
 
-Private GCS mode uses the same object layout as local gold:
+For this reason, the app and ETL support both:
 
-```text
-gs://<bucket>/dimensions/dim_city.csv
-gs://<bucket>/dimensions/dim_stations.csv
-gs://<bucket>/dimensions/dim_date.csv
-gs://<bucket>/facts/fact_trips_2024.csv
-gs://<bucket>/facts/fact_trips_2025.csv
-gs://<bucket>/facts/fact_top_trip_patterns.csv
-gs://<bucket>/notebook_exports/<export>.csv
-gs://<bucket>/notebook_exports/<figure>.png
-```
-
-Expected remote URL layout:
-
-```
-<base>/dimensions/dim_city.csv
-<base>/dimensions/dim_stations.csv
-<base>/dimensions/dim_date.csv
-<base>/facts/fact_trips_2024.csv
-<base>/facts/fact_trips_2025.csv
-<base>/facts/fact_top_trip_patterns.csv
-```
-
-Set these in Streamlit secrets (or environment):
-
-- `GOLD_PUBLIC_BASE_URL`
-- `AVAILABLE_YEARS` (example: `2024,2025`)
-
-For private GCS-backed Streamlit reads, add these environment variables:
-
-- `GOLD_GCS_BUCKET`
-- `GOLD_GCS_PREFIX` (optional, leave empty for bucket root)
-- `AVAILABLE_YEARS` if you want a fallback year list when remote listing is unavailable
-
-And add this to `.streamlit/secrets.toml`:
-
-```toml
-[connections.gcs]
-type = "service_account"
-project_id = "xxx"
-private_key_id = "xxx"
-private_key = "xxx"
-client_email = "xxx"
-client_id = "xxx"
-auth_uri = "https://accounts.google.com/o/oauth2/auth"
-token_uri = "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "xxx"
-```
-
-For ETL-side uploads outside Streamlit, set these environment variables before running the pipeline:
-
-- `GOLD_GCS_UPLOAD=true`
-- `GOLD_GCS_BUCKET=<bucket-name>`
-- `GOLD_GCS_PREFIX=<optional-prefix>`
-- `GCS_PROJECT=<gcp-project-id>`
-- `GCS_SERVICE_ACCOUNT_FILE=<path-to-service-account-json>`
-
-### Optional pre-deploy endpoint validation in GitHub Actions
-
-If you fill in `.github/community-cloud-config.json` with:
-
-- `gold_public_base_url`
-- `available_years`
-
-then CI workflow `.github/workflows/ci-community.yml` will verify that the
-required remote gold CSV endpoints are reachable before deployment updates.
+1. Local development with files in `02_data/gold/`
+2. Cloud-backed storage for larger published datasets when repo storage is no longer practical
 
