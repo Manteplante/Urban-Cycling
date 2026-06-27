@@ -5,14 +5,63 @@ tasks:
   # HELP
   # --------------------------------------------------------------------------
   default:
-    desc: Show all available tasks
+    desc: Show tasks and underlying commands
+    cmds:
+      - task list
+      - task commands
+
+  help:
+    desc: Show tasks and underlying commands
+    cmds:
+      - task list
+      - task commands
+
+  list:
+    desc: Show all available task names
     cmds:
       - task --list-all
 
-  help:
-    desc: Show all available tasks
+  commands:
+    desc: Show command cheat sheet (task -> actual command)
+    silent: true
     cmds:
-      - task --list-all
+      - echo ""
+      - echo "Task command cheat sheet"
+      - echo "========================"
+      - echo ""
+      - echo "ENVIRONMENT"
+      - echo "  task setup                    -> uv sync --frozen"
+      - echo "  task sync                     -> uv sync"
+      - echo ""
+      - echo "APPLICATION"
+      - echo "  task app                      -> uv run streamlit run 04_app/home.py"
+      - echo ""
+      - echo "SCRAPING"
+      - echo "  task scrape:monthly           -> uv run python 01_scraper/scraper_main.py --monthly"
+      - echo "  task scrape:year YEAR=2025    -> uv run python 01_scraper/scraper_main.py --year 2025"
+      - echo ""
+      - echo "PIPELINE"
+      - echo "  task pipeline                 -> uv run python 03_processing/run_pipeline.py"
+      - echo "  task pipeline:full            -> uv run python 03_processing/run_pipeline.py"
+      - echo "  task pipeline:status          -> uv run python 03_processing/run_pipeline.py --status"
+      - echo "  task pipeline:silver          -> uv run python 03_processing/run_pipeline.py --silver"
+      - echo "  task pipeline:gold            -> uv run python 03_processing/run_pipeline.py --gold"
+      - echo "  task pipeline:years YEARS='2024 2025'"
+      - echo "                                -> uv run python 03_processing/run_pipeline.py --years 2024 2025"
+      - echo "  task pipeline:top-patterns    -> uv run python 03_processing/run_pipeline.py --top-patterns"
+      - echo "  task pipeline:top-patterns:years YEARS='2024 2025'"
+      - echo "                                -> uv run python 03_processing/run_pipeline.py --top-patterns --years 2024 2025"
+      - echo ""
+      - echo "CI AND QUALITY"
+      - echo "  task ci:compile               -> uv run python -m compileall 01_scraper 03_processing 04_app"
+      - echo "  task ci:gold-only             -> uv run python 03_processing/ci/check_app_gold_only.py"
+      - echo "  task ci:smoke                 -> uv run python -c \"import sys; sys.path.insert(0, '04_app'); import services.gold as g, services.notebook_outputs as n; print('smoke-ok', len(g.available_years()), n.exports_exist())\""
+      - echo "  task ci:remote BASE_URL=https://... YEARS=2024,2025"
+      - echo "                                -> uv run python 03_processing/ci/check_remote_gold_availability.py --base-url <BASE_URL> --years <YEARS>"
+      - echo "  task ci                       -> runs ci:compile + ci:gold-only + ci:smoke"
+      - echo ""
+      - echo "MAINTENANCE"
+      - echo "  task clean:pycache            -> remove __pycache__ and *.pyc files"
 
   # --------------------------------------------------------------------------
   # ENVIRONMENT
@@ -44,7 +93,7 @@ tasks:
       - uv run python 01_scraper/scraper_main.py --monthly
 
   scrape:year:
-    desc: Scrape one year (usage: task scrape:year YEAR=2025)
+    desc: "Scrape one year (usage: task scrape:year YEAR=2025)"
     requires:
       vars: [YEAR]
     cmds:
@@ -79,7 +128,7 @@ tasks:
       - uv run python 03_processing/run_pipeline.py --gold
 
   pipeline:years:
-    desc: Full pipeline for selected years (usage: task pipeline:years YEARS="2024 2025")
+    desc: "Full pipeline for selected years (usage: task pipeline:years YEARS='2024 2025')"
     requires:
       vars: [YEARS]
     cmds:
@@ -91,7 +140,7 @@ tasks:
       - uv run python 03_processing/run_pipeline.py --top-patterns
 
   pipeline:top-patterns:years:
-    desc: Rebuild fact_top_trip_patterns.csv for selected years (usage: task pipeline:top-patterns:years YEARS="2024 2025")
+    desc: "Rebuild fact_top_trip_patterns.csv for selected years (usage: task pipeline:top-patterns:years YEARS='2024 2025')"
     requires:
       vars: [YEARS]
     cmds:
@@ -116,7 +165,7 @@ tasks:
       - uv run python -c "import sys; sys.path.insert(0, '04_app'); import services.gold as g, services.notebook_outputs as n; print('smoke-ok', len(g.available_years()), n.exports_exist())"
 
   ci:remote:
-    desc: Validate remote gold endpoints (usage: task ci:remote BASE_URL=https://... YEARS=2024,2025)
+    desc: "Validate remote gold endpoints (usage: task ci:remote BASE_URL=https://... YEARS=2024,2025)"
     requires:
       vars: [BASE_URL, YEARS]
     cmds:

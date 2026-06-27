@@ -34,6 +34,11 @@ The repository has one clear flow: scrape -> pipeline -> notebook processing wor
 
 ```
 .
+├── .github/
+│   └── workflows/
+│       └── ci-community.yml
+├── .env.example
+├── .python-version
 ├── 01_scraper/
 │   ├── scraper_main.py
 │   └── csv_fetcher.py, csv_cleaner.py, enabler.py
@@ -57,75 +62,126 @@ The repository has one clear flow: scrape -> pipeline -> notebook processing wor
 │       ├── 06_yearly_trends.ipynb
 │       ├── 07_least_used_stations.ipynb
 │       └── utils.py
-└── 04_app/
-    ├── home.py
-    ├── pages/
-    ├── services/
-    ├── components/
-    └── utils/
+├── 04_app/
+│   ├── home.py
+│   ├── pages/
+│   ├── services/
+│   ├── components/
+│   └── utils/
+├── pyproject.toml
+├── README.md
+├── requirements.txt
+├── Taskfile.yml
+└── uv.lock
 ```
 
 ---
 
-## Run the project (pipeline specific)
+## Local developer onboarding (uv + task)
 
-### 1. Create environment and install dependencies
+This repository uses:
+
+- `uv` for Python dependency and environment management
+- `Taskfile.yml` as the cross-platform command runner (Windows + Linux + macOS)
+
+On Windows, this project standardizes on **Chocolatey** for CLI tool installation.
+
+### 1. Install required CLIs
+
+Windows (project-standard): install with Chocolatey.
 
 ```bash
-uv sync
+# Install uv
+choco install uv -y
+
+# Install task (Go Task)
+choco install go-task -y
 ```
 
-uv creates a local `.venv` in the repository root. To work inside it explicitly,
-you can activate it on Windows with:
+Linux / macOS:
 
 ```bash
-.\.venv\Scripts\activate
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install task (Go Task)
+brew install go-task/tap/go-task
+# or see: https://taskfile.dev/installation/
 ```
 
-If you prefer not to activate anything, use `uv run ...` for commands.
+If a newly installed command is not recognized, restart your terminal so PATH updates are loaded.
 
-### 2. Create local env file
+Optional verification:
 
 ```bash
+uv --version
+task --version
+```
+
+### 2. Open the repo root and bootstrap
+
+```bash
+cd Urban-Cycling
+task setup
+```
+
+`task setup` runs `uv sync --frozen` and creates a local `.venv` in the repository root.
+
+### 3. Create local env file
+
+```bash
+# Windows PowerShell
 Copy-Item .env.example .env
+
+# Linux / macOS
+cp .env.example .env
 ```
 
-### 3. Load Bronze data
-
-Place source CSV files in:
-
-```
-02_data/bronze/oslo/
-02_data/bronze/bergen/
-02_data/bronze/trondheim/
-```
-
-Or fetch latest source files:
+### 4. Discover available commands
 
 ```bash
-python 01_scraper/scraper_main.py --monthly
+task
 ```
 
-Or fetch all available months for one specific year:
+This prints:
+
+- all available tasks
+- a command cheat sheet showing the underlying command for each task
+
+### 5. Most common workflows
 
 ```bash
-python 01_scraper/scraper_main.py --year 2025
+# Start app
+task app
+
+# Scrape latest monthly files
+task scrape:monthly
+
+# Scrape specific year
+task scrape:year YEAR=2025
+
+# Run full Bronze -> Silver -> Gold pipeline
+task pipeline
+
+# Show data layer status only
+task pipeline:status
+
+# Run CI-style local checks
+task ci
 ```
 
-### 4. Build Silver and Gold
+### 6. Optional GCS publish mode (ETL upload)
+
+Before running pipeline tasks, set these variables:
 
 ```bash
-uv run python 03_processing/run_pipeline.py
-```
-
-Optional GCS publish mode:
-
-```bash
+# Windows PowerShell
 $env:GOLD_GCS_UPLOAD="true"
 $env:GOLD_GCS_BUCKET="your-private-bucket"
 $env:GCS_PROJECT="your-gcp-project"
 $env:GCS_SERVICE_ACCOUNT_FILE="cloud-key.json"
-uv run python 03_processing/run_pipeline.py
+
+task pipeline
 ```
 
 This keeps local files in `02_data/gold/` and additionally uploads the same artefacts to:
@@ -136,13 +192,17 @@ gs://<bucket>/facts/*
 gs://<bucket>/notebook_exports/*
 ```
 
-### 5. Start the app
+### 7. Direct uv commands (without task)
+
+All task commands can still be run directly. Examples:
 
 ```bash
 uv run streamlit run 04_app/home.py
+uv run python 03_processing/run_pipeline.py --status
+uv run python 01_scraper/scraper_main.py --year 2025
 ```
 
-### 6. Legacy requirements file
+### 8. Legacy requirements file
 
 `requirements.txt` is retained as a compatibility bridge for now, but `pyproject.toml`
 and `uv.lock` are the source of truth for dependencies.
