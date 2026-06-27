@@ -6,7 +6,7 @@ permissions:
 on:
   push:
     branches:
-      - main
+      - "**"
   pull_request:
 
 jobs:
@@ -40,6 +40,9 @@ jobs:
       - name: Smoke import Streamlit app services
         run: |
           uv run python -c "import sys; sys.path.insert(0, '04_app'); import services.gold as g; import services.notebook_outputs as n; print('smoke-ok', len(g.available_years()), n.exports_exist())"
+
+      - name: Smoke test Streamlit app pages
+        run: uv run pytest tests/test_streamlit_app.py -q
 
       - name: Validate remote gold endpoints
         run: uv run python 03_processing/ci/check_remote_gold_availability.py
