@@ -72,10 +72,17 @@ The repository has one clear flow: scrape -> pipeline -> notebook processing wor
 ### 1. Create environment and install dependencies
 
 ```bash
-python -m venv bysykkel
-bysykkel\Scripts\activate
-pip install -r requirements.txt
+uv sync
 ```
+
+uv creates a local `.venv` in the repository root. To work inside it explicitly,
+you can activate it on Windows with:
+
+```bash
+.\.venv\Scripts\activate
+```
+
+If you prefer not to activate anything, use `uv run ...` for commands.
 
 ### 2. Create local env file
 
@@ -108,7 +115,7 @@ python 01_scraper/scraper_main.py --year 2025
 ### 4. Build Silver and Gold
 
 ```bash
-python 03_processing/run_pipeline.py
+uv run python 03_processing/run_pipeline.py
 ```
 
 Optional GCS publish mode:
@@ -118,7 +125,7 @@ $env:GOLD_GCS_UPLOAD="true"
 $env:GOLD_GCS_BUCKET="your-private-bucket"
 $env:GCS_PROJECT="your-gcp-project"
 $env:GCS_SERVICE_ACCOUNT_FILE="cloud-key.json"
-python 03_processing/run_pipeline.py
+uv run python 03_processing/run_pipeline.py
 ```
 
 This keeps local files in `02_data/gold/` and additionally uploads the same artefacts to:
@@ -132,9 +139,13 @@ gs://<bucket>/notebook_exports/*
 ### 5. Start the app
 
 ```bash
-cd 04_app
-streamlit run home.py
+uv run streamlit run 04_app/home.py
 ```
+
+### 6. Legacy requirements file
+
+`requirements.txt` is retained as a compatibility bridge for now, but `pyproject.toml`
+and `uv.lock` are the source of truth for dependencies.
 
 ---
 
