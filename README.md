@@ -8,6 +8,18 @@ Urban Cycling is a bike-share analytics repository built around a strict Medalli
 
 The repository has one clear flow: scrape -> pipeline -> notebook processing workspace -> Streamlit pages.
 
+## Project intent
+
+This is a private, individual project used to test and iterate on two things together:
+
+- a Streamlit app for presenting city bike-share insights
+- a data analytics pipeline for scraping, transforming, and modeling data
+
+You can still use this project yourself with your own infrastructure choices.
+Google Cloud Storage is included mainly to support production-style Streamlit deployment and larger hosted datasets, but local development works without cloud storage.
+
+Contributions are welcome, especially around analytical choices, metric definitions, transformations, and visualization logic.
+
 ---
 
 ## Architecture overview
@@ -309,12 +321,6 @@ Expected flow:
 4. Open PR: `dev` -> `main`.
 5. CI passes and PR is merged into `main`.
 
-Recommended GitHub branch protection settings:
-
-1. Protect `dev`: require pull request before merge, require CI status check, block force pushes/deletions.
-2. Protect `main`: require pull request before merge, require CI status check, require branch up to date, block force pushes/deletions.
-3. Restrict direct pushes to both `dev` and `main`.
-
 ### Deploy in Streamlit Community Cloud
 
 1. Open Streamlit Community Cloud.
@@ -333,3 +339,10 @@ For this reason, the app and ETL support both:
 1. Local development with files in `02_data/gold/`
 2. Cloud-backed storage for larger published datasets when repo storage is no longer practical
 
+Follow this resource to set up your own: https://docs.streamlit.io/develop/tutorials/databases/gcs
+
+---
+
+## License
+
+This project is licensed under the MIT License.
