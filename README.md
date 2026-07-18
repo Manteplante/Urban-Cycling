@@ -287,12 +287,33 @@ This repository now targets Streamlit Community Cloud behavior:
 
 Workflow file: `.github/workflows/ci-community.yml`
 
-It runs on push/PR and performs:
+It runs on pull requests targeting `dev` and `main`, and performs:
 
 1. Dependency install
 2. Python compile check across scraper/processing/app
 3. Gold-only app guardrail (`03_processing/ci/check_app_gold_only.py`)
 4. Smoke imports for Streamlit service modules
+5. Streamlit app page smoke tests
+
+### Branching model (minimal solo workflow)
+
+- `main` = production branch
+- `dev` = integration branch
+- `feature/*` = short-lived work branches
+
+Expected flow:
+
+1. Create `feature/*` from `dev`.
+2. Open PR: `feature/*` -> `dev`.
+3. CI passes and PR is merged into `dev`.
+4. Open PR: `dev` -> `main`.
+5. CI passes and PR is merged into `main`.
+
+Recommended GitHub branch protection settings:
+
+1. Protect `dev`: require pull request before merge, require CI status check, block force pushes/deletions.
+2. Protect `main`: require pull request before merge, require CI status check, require branch up to date, block force pushes/deletions.
+3. Restrict direct pushes to both `dev` and `main`.
 
 ### Deploy in Streamlit Community Cloud
 
