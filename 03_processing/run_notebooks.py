@@ -1,13 +1,14 @@
-"""Execute workspace notebooks in deterministic order for app exports."""
-
 from __future__ import annotations
 
 import argparse
+import asyncio
+import platform
 import time
 from pathlib import Path
 
 import nbformat
 from nbconvert.preprocessors import CellExecutionError, ExecutePreprocessor
+from traitlets.config import Config
 
 WORKSPACE_DIR = Path(__file__).parent / "workspace"
 WORKSPACE_NOTEBOOKS = [
@@ -27,18 +28,34 @@ def execute_notebook(path: Path, kernel_name: str, timeout: int) -> None:
     with path.open("r", encoding="utf-8") as handle:
         notebook = nbformat.read(handle, as_version=4)
 
-    executor = ExecutePreprocessor(timeout=timeout, kernel_name=kernel_name)
+    cfg = Config()
+    extra_arguments: list[str] = []
+    if platform.system() == "Windows":
+        # IPC transport is not supported in this Windows execution path.
+        cfg.KernelManager.transport = "tcp"
+        cfg.KernelManager.ip = "127.0.0.1"
+        # Keep notebook execution logs clean from known local TCP warning noise.
+        extra_arguments.append("--IPKernelApp.log_level=ERROR")
+    else:
+        cfg.KernelManager.transport = "ipc"
+
+    executor = ExecutePreprocessor(
+        timeout=timeout,
+        kernel_name=kernel_name,
+        config=cfg,
+        extra_arguments=extra_arguments,
+    )
     resources = {"metadata": {"path": str(path.parent)}}
     executor.preprocess(notebook, resources=resources)
-
-    with path.open("w", encoding="utf-8") as handle:
-        nbformat.write(notebook, handle)
 
     elapsed = time.time() - started
     print(f"[notebooks] Completed {path.name} in {elapsed:.1f}s")
 
 
 def run_workspace_notebooks(kernel_name: str, timeout: int) -> None:
+    if platform.system() == "Windows":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
     missing = [name for name in WORKSPACE_NOTEBOOKS if not (WORKSPACE_DIR / name).exists()]
     if missing:
         raise FileNotFoundError(f"Missing notebook(s): {', '.join(missing)}")
