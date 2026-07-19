@@ -8,6 +8,7 @@ from streamlit_folium import st_folium
 
 from components.filters import sidebar_filters
 from services.gold import gold
+from services.gcs_storage import gcs_runtime_status
 from services.transform import (
     route_slicer_options,
     selected_route_lines,
@@ -71,10 +72,16 @@ with st.spinner("Loading trip data…"):
     df = query.load()
 
 if df.empty:
-    st.info(
-        "No data found for the selected filters. "
-        "Make sure you have run: `python 03_processing/transform.py`"
-    )
+    status = gcs_runtime_status()
+    if not status["enabled"]:
+        st.error("No data source configured. Set GOLD_GCS_BUCKET in Streamlit secrets.")
+    elif not status["filesystem_ready"]:
+        st.error("GCS authentication failed. Check Streamlit secrets for service-account credentials.")
+    else:
+        st.info(
+            "No data found for the selected filters in remote gold data. "
+            "Try widening city/year/month filters or verify fact_trips files in your configured bucket/prefix."
+        )
     st.stop()
 
 selected_city = city_view_state

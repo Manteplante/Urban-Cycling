@@ -3,16 +3,19 @@
 import streamlit as st
 import pandas as pd
 from services.gold import gold
+from services.gcs_storage import gcs_runtime_status
 
 
 # Four-column KPI row: trips, stations, avg duration, cities.
 def headline_metrics(df: pd.DataFrame, n_cities_override: int | None = None) -> None:
     if df.empty:
-        st.info(
-            "No data loaded yet. "
-            "Add raw CSVs to `02_data/raw/{city}/` then run: "
-            "`python 03_processing/transform.py`"
-        )
+        status = gcs_runtime_status()
+        if not status["enabled"]:
+            st.info("No data loaded: configure GOLD_GCS_BUCKET in Streamlit secrets for remote gold access.")
+        elif not status["filesystem_ready"]:
+            st.info("No data loaded: GCS credentials are missing or invalid in Streamlit secrets.")
+        else:
+            st.info("No data loaded for current filters from remote gold data.")
         return
 
     total_trips  = len(df)
@@ -38,8 +41,11 @@ def data_status_banner() -> None:
     if years:
         st.success(f"✅  Gold layer loaded — years available: {', '.join(str(y) for y in years)}")
     else:
-        st.warning(
-            "⚠️  No processed data found.  "
-            "Place raw CSVs in `02_data/raw/{{city}}/` then run `python 03_processing/transform.py`."
-        )
+        status = gcs_runtime_status()
+        if not status["enabled"]:
+            st.warning("⚠️  No remote gold bucket configured. Set GOLD_GCS_BUCKET in Streamlit secrets.")
+        elif not status["filesystem_ready"]:
+            st.warning("⚠️  GCS authentication failed. Verify service-account secrets in Streamlit Cloud.")
+        else:
+            st.warning("⚠️  Remote gold data is reachable but no years were discovered in facts/fact_trips_*.csv.")
 
