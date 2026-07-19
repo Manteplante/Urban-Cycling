@@ -326,7 +326,26 @@ Expected flow:
 1. Open Streamlit Community Cloud.
 2. Choose this repository and branch `main`.
 3. Set main file path to `04_app/home.py`.
-4. Add app secrets (in Streamlit settings) when needed.
+4. Add app secrets (in Streamlit settings) for private GCS access.
+
+Required runtime settings for remote-only app loading:
+
+- `GOLD_GCS_BUCKET`
+- Optional: `GOLD_GCS_PREFIX`
+- Service account keys under one supported secret layout:
+     - `[connections.gcs]` (preferred)
+     - `[gcp_service_account]`
+     - `[gcs]`
+     - or top-level service-account keys
+
+Expected object layout in bucket:
+
+- `dimensions/dim_city.csv`
+- `dimensions/dim_stations.csv`
+- `dimensions/dim_date.csv`
+- `facts/fact_trips_<year>.csv`
+- `facts/fact_top_trip_patterns.csv`
+- `notebook_exports/*.csv|*.png`
 
 ### Why Google Cloud is used in this project
 
@@ -334,10 +353,8 @@ This project uses Google Cloud because the bike-share datasets are large enough 
 
 In practice, the repository keeps the code, pipeline, and local development structure, while larger analytical outputs can be stored outside GitHub and read back into the app when needed.
 
-For this reason, the app and ETL support both:
-
-1. Local development with files in `02_data/gold/`
-2. Cloud-backed storage for larger published datasets when repo storage is no longer practical
+For this reason, the Streamlit app reads cloud-hosted gold data in deployment,
+while ETL can still generate local artefacts before optional GCS publishing.
 
 Follow this resource to set up your own: https://docs.streamlit.io/develop/tutorials/databases/gcs
 

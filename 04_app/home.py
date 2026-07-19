@@ -8,6 +8,7 @@ from pathlib import Path
 
 from components.metrics import headline_metrics
 from services.gold import gold
+from services.gcs_storage import gcs_runtime_status
 
 st.set_page_config(
     page_title="Urban Cycling — Norwegian Bike Analytics",
@@ -75,6 +76,17 @@ if available_years:
     )
 else:
     headline_metrics(pd.DataFrame())
+    gcs_status = gcs_runtime_status()
+    if not gcs_status["enabled"]:
+        st.error("Gold data source is not configured for deployment.")
+        st.caption("Set GOLD_GCS_BUCKET in Streamlit secrets or environment variables.")
+    elif not gcs_status["filesystem_ready"]:
+        st.error("Gold data source is configured, but GCS authentication failed.")
+        st.caption(
+            "Provide valid service-account credentials in Streamlit secrets using [connections.gcs], [gcp_service_account], [gcs], or top-level service-account keys."
+        )
+    else:
+        st.warning("No remote fact_trips data was discovered in the configured GCS bucket/prefix.")
 
 st.divider()
 
