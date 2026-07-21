@@ -18,17 +18,7 @@ st.set_page_config(
 st.header("🕘 Work Trips")
 st.caption("Top 10 distinct start-end routes for weekdays and rush-hour windows (06-09 and 14-17)")
 
-# ── Load and validate export contract ─────────────────────────────────────────
-routes = load_export_df("work_trips_routes.csv")
-
-if routes.empty:
-    st.info(
-        "Work-trip exports are missing. Run "
-        "03_processing/workspace/03_work_trips.ipynb to create them."
-    )
-    st.stop()
-
-required = {
+REQUIRED_COLUMNS = [
     "city_name",
     "year",
     "day_of_week",
@@ -44,7 +34,19 @@ required = {
     "trips",
     "avg_duration_minutes",
     "median_duration_minutes",
-}
+]
+
+# ── Load and validate export contract ─────────────────────────────────────────
+routes = load_export_df("work_trips_routes.csv", required_columns=REQUIRED_COLUMNS)
+
+if routes.empty:
+    st.info(
+        "Work-trip exports are missing. Run "
+        "03_processing/workspace/03_work_trips.ipynb to create them."
+    )
+    st.stop()
+
+required = set(REQUIRED_COLUMNS)
 missing = sorted(required - set(routes.columns))
 if missing:
     st.error("Work-trip export has missing columns: " + ", ".join(missing))
@@ -58,6 +60,16 @@ routes = routes.dropna(subset=["year", "day_of_week", "trips", "day_name"]).copy
 routes["year"] = routes["year"].astype(int)
 routes["day_of_week"] = routes["day_of_week"].astype(int)
 routes["trips"] = routes["trips"].astype(int)
+
+for column in [
+    "city_name",
+    "day_name",
+    "time_bin",
+    "duration_bin",
+    "start_station_name",
+    "end_station_name",
+]:
+    routes[column] = routes[column].astype("category")
 
 # Enforce weekday-only scope for this chapter.
 routes = routes[routes["day_of_week"].between(0, 4)].copy()
@@ -116,12 +128,14 @@ if not selected_weekdays:
     st.stop()
 
 # ── Filter and build top-route summary ────────────────────────────────────────
-plot_df = routes[routes["year"].isin(selected_years)].copy()
-plot_df = plot_df[plot_df["day_name"].isin(selected_weekdays)].copy()
-plot_df = plot_df[plot_df["time_bin"].isin(selected_time_bins)].copy()
-plot_df = plot_df[plot_df["duration_bin"].isin(selected_duration_bins)].copy()
+mask = routes["year"].isin(selected_years)
+mask &= routes["day_name"].isin(selected_weekdays)
+mask &= routes["time_bin"].isin(selected_time_bins)
+mask &= routes["duration_bin"].isin(selected_duration_bins)
 if selected_city != "All Cities":
-    plot_df = plot_df[plot_df["city_name"] == selected_city].copy()
+    mask &= routes["city_name"] == selected_city
+
+plot_df = routes.loc[mask].copy()
 
 if plot_df.empty:
     st.info("No work-trip routes found for the selected filters.")

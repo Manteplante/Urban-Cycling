@@ -69,7 +69,20 @@ with st.sidebar:
 
 # ── Load data ──────────────────────────────────────────────────────────────────
 with st.spinner("Loading trip data…"):
-    df = query.load()
+    df = query.load(
+        required_columns=[
+            "city_name",
+            "year",
+            "start_station_id",
+            "start_station_name",
+            "start_lat",
+            "start_lon",
+            "end_station_id",
+            "end_station_name",
+            "end_lat",
+            "end_lon",
+        ]
+    )
 
 if df.empty:
     status = gcs_runtime_status()
