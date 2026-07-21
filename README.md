@@ -332,6 +332,8 @@ Required runtime settings for remote-only app loading:
 
 - `GOLD_GCS_BUCKET`
 - Optional: `GOLD_GCS_PREFIX`
+- Optional debug-only flag in environment variables: `APP_DEBUG_MEMORY`
+- Optional auth-debug flag in app config: `APP_DEBUG_GCS_ERRORS`
 - Service account keys under one supported secret layout:
      - `[connections.gcs]` (preferred)
      - `[gcp_service_account]`
