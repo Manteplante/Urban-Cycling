@@ -37,7 +37,19 @@ if selected_city != "All Cities":
     query = query.city(selected_city)
 
 with st.spinner("Loading long-trip data…"):
-    df = query.load()
+    df = query.load(
+        required_columns=[
+            "trip_id",
+            "city_name",
+            "duration_seconds",
+            "start_station_name",
+            "start_lat",
+            "start_lon",
+            "end_station_name",
+            "end_lat",
+            "end_lon",
+        ]
+    )
 
 if df.empty:
     st.info("No data found for the selected filters.")

@@ -32,7 +32,7 @@ def _read_csv_remote(relative_path: str, **kwargs) -> pd.DataFrame:
     return gcs_read_csv(relative_path, **kwargs)
 
 
-def cache_data(ttl: int = 3600):
+def cache_data(ttl: int = 3600, max_entries: int | None = None):
     # Notebook and script contexts should not depend on Streamlit runtime state.
     if st is None:
         def decorator(func):
@@ -47,7 +47,49 @@ def cache_data(ttl: int = 3600):
     except Exception:
         pass
 
-    return st.cache_data(ttl=ttl)
+    return st.cache_data(ttl=ttl, max_entries=max_entries)
+
+
+def _optimize_fact_frame(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    optimized = df.copy()
+
+    int_columns = optimized.select_dtypes(include=["int", "int64", "Int64"]).columns
+    for column in int_columns:
+        optimized[column] = pd.to_numeric(optimized[column], downcast="integer")
+
+    float_columns = optimized.select_dtypes(include=["float", "float64", "Float64"]).columns
+    for column in float_columns:
+        optimized[column] = pd.to_numeric(optimized[column], downcast="float")
+
+    return optimized
+
+
+def _requested_columns(required_columns: tuple[str, ...] | None) -> set[str]:
+    return set(required_columns or ())
+
+
+def _is_truthy(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _debug_memory_enabled() -> bool:
+    env_raw = (os.getenv("APP_DEBUG_MEMORY") or "").strip()
+    return bool(env_raw) and _is_truthy(env_raw)
+
+
+def _dataframe_memory_mb(df: pd.DataFrame) -> float:
+    if df.empty:
+        return 0.0
+    return float(df.memory_usage(deep=True).sum()) / (1024 * 1024)
+
+
+def _emit_memory_debug(message: str) -> None:
+    if not message or not _debug_memory_enabled():
+        return
+    print(f"[app-memory] {message}")
 
 _SCHEMA_REFERENCE_LINES = [
     "trip_id",
@@ -78,7 +120,7 @@ _SCHEMA_REFERENCE_LINES = [
 #  Low-level cached loaders  (internal — use the catalog instead)
 # ══════════════════════════════════════════════════════════════════════════════
 
-@cache_data(ttl=3600)
+@cache_data(ttl=3600, max_entries=1)
 def cities() -> pd.DataFrame:
     remote_df = _read_csv_remote("dimensions/dim_city.csv")
     if not remote_df.empty:
@@ -92,7 +134,7 @@ def cities() -> pd.DataFrame:
     })
 
 
-@cache_data(ttl=3600)
+@cache_data(ttl=3600, max_entries=1)
 def stations() -> pd.DataFrame:
     df = _read_csv_remote("dimensions/dim_stations.csv")
     if df.empty:
@@ -100,12 +142,12 @@ def stations() -> pd.DataFrame:
     return df
 
 
-@cache_data(ttl=3600)
+@cache_data(ttl=3600, max_entries=1)
 def dates() -> pd.DataFrame:
     return _read_csv_remote("dimensions/dim_date.csv", parse_dates=["date"])
 
 
-@cache_data(ttl=3600)
+@cache_data(ttl=900, max_entries=1)
 def available_years() -> list[int]:
     if gcs_enabled():
         entries = gcs_list("facts")
@@ -140,7 +182,7 @@ def available_years() -> list[int]:
     return sorted(set(parsed))
 
 
-@cache_data(ttl=3600)
+@cache_data(ttl=900, max_entries=3)
 def facts(years: tuple[int, ...]) -> pd.DataFrame:
     frames = []
     for yr in years:
@@ -152,19 +194,31 @@ def facts(years: tuple[int, ...]) -> pd.DataFrame:
         df = gcs_read_csv(remote_relative_path)
         if not df.empty:
             df["year"] = yr
-            frames.append(df)
+            frames.append(_optimize_fact_frame(df))
 
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    _emit_memory_debug(
+        f"facts cache-miss years={list(years)} rows={len(result):,} cols={len(result.columns)} mem_mb={_dataframe_memory_mb(result):.2f}"
+    )
+    return result
 
 
-@cache_data(ttl=3600)
+@cache_data(ttl=900, max_entries=2)
 def top_trip_patterns() -> pd.DataFrame:
-    return _read_csv_remote("facts/fact_top_trip_patterns.csv")
+    result = _read_csv_remote("facts/fact_top_trip_patterns.csv")
+    _emit_memory_debug(
+        f"top_trip_patterns cache-miss rows={len(result):,} cols={len(result.columns)} mem_mb={_dataframe_memory_mb(result):.2f}"
+    )
+    return result
 
 
-@cache_data(ttl=3600)
-def joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
-    # Fully denormalised trips table, filtered and joined once, then cached.
+def joined(
+    city_ids: tuple[int, ...],
+    years: tuple[int, ...],
+    required_columns: tuple[str, ...] | None = None,
+) -> pd.DataFrame:
+    # Avoid caching the fully denormalised table: it is the largest object in the app.
+    requested = _requested_columns(required_columns)
     facts_df = facts(years)
     if facts_df.empty:
         return pd.DataFrame()
@@ -174,53 +228,86 @@ def joined(city_ids: tuple[int, ...], years: tuple[int, ...]) -> pd.DataFrame:
     if facts_df.empty:
         return pd.DataFrame()
 
-    dim_city     = cities()
-    dim_stations = stations()
-    dim_date     = dates()
+    if requested:
+        fact_columns = set(requested)
+        if "city_name" in requested:
+            fact_columns.add("city_id")
+        if requested.intersection({"start_station_name", "start_lat", "start_lon"}):
+            fact_columns.update({"city_id", "start_station_id"})
+        if requested.intersection({"end_station_name", "end_lat", "end_lon"}):
+            fact_columns.update({"city_id", "end_station_id"})
+        if requested.intersection({"date", "month", "month_name", "day_of_week", "day_name", "is_weekend", "quarter"}):
+            fact_columns.add("date_id")
+
+        present_fact_columns = [column for column in facts_df.columns if column in fact_columns]
+        facts_df = facts_df[present_fact_columns]
 
     df = facts_df.copy()
 
     # city name
-    df = df.merge(
-        dim_city[["city_id","display_name"]].rename(columns={"display_name": "city_name"}),
-        on="city_id", how="left",
-    )
+    if not requested or "city_name" in requested:
+        dim_city = cities()
+        df = df.merge(
+            dim_city[["city_id", "display_name"]].rename(columns={"display_name": "city_name"}),
+            on="city_id", how="left",
+        )
 
     # start station
-    df["start_station_id"] = df["start_station_id"].astype(str)
-    _s = dim_stations.copy()
-    _s["station_id"] = _s["station_id"].astype(str)
-    df = df.merge(
-        _s.rename(columns={
-            "station_id":   "start_station_id",
-            "station_name": "start_station_name",
-            "latitude":     "start_lat",
-            "longitude":    "start_lon",
-        })[["city_id", "start_station_id", "start_station_name", "start_lat", "start_lon"]],
-        on=["city_id", "start_station_id"], how="left",
-    )
+    if not requested or requested.intersection({"start_station_name", "start_lat", "start_lon"}):
+        dim_stations = stations()
+        df["start_station_id"] = df["start_station_id"].astype(str)
+        _s = dim_stations.copy()
+        _s["station_id"] = _s["station_id"].astype(str)
+        df = df.merge(
+            _s.rename(columns={
+                "station_id":   "start_station_id",
+                "station_name": "start_station_name",
+                "latitude":     "start_lat",
+                "longitude":    "start_lon",
+            })[["city_id", "start_station_id", "start_station_name", "start_lat", "start_lon"]],
+            on=["city_id", "start_station_id"], how="left",
+        )
 
     # end station
-    df["end_station_id"] = df["end_station_id"].astype(str)
-    _e = dim_stations.copy()
-    _e["station_id"] = _e["station_id"].astype(str)
-    df = df.merge(
-        _e.rename(columns={
-            "station_id":   "end_station_id",
-            "station_name": "end_station_name",
-            "latitude":     "end_lat",
-            "longitude":    "end_lon",
-        })[["city_id", "end_station_id", "end_station_name", "end_lat", "end_lon"]],
-        on=["city_id", "end_station_id"], how="left",
-    )
+    if not requested or requested.intersection({"end_station_name", "end_lat", "end_lon"}):
+        if "dim_stations" not in locals():
+            dim_stations = stations()
+        df["end_station_id"] = df["end_station_id"].astype(str)
+        _e = dim_stations.copy()
+        _e["station_id"] = _e["station_id"].astype(str)
+        df = df.merge(
+            _e.rename(columns={
+                "station_id":   "end_station_id",
+                "station_name": "end_station_name",
+                "latitude":     "end_lat",
+                "longitude":    "end_lon",
+            })[["city_id", "end_station_id", "end_station_name", "end_lat", "end_lon"]],
+            on=["city_id", "end_station_id"], how="left",
+        )
 
     # date dimension
-    if not dim_date.empty and "date_id" in df.columns:
+    if (
+        (not requested or requested.intersection({"date", "month", "month_name", "day_of_week", "day_name", "is_weekend", "quarter"}))
+        and "date_id" in df.columns
+    ):
+        dim_date = dates()
         keep_cols = ["date_id","date","month","month_name",
                      "day_of_week","day_name","is_weekend","quarter"]
         keep_cols = [c for c in keep_cols if c in dim_date.columns]
-        df = df.merge(dim_date[keep_cols], on="date_id", how="left")
+        if keep_cols:
+            df = df.merge(dim_date[keep_cols], on="date_id", how="left")
 
+    if requested:
+        ordered_columns = [column for column in required_columns or () if column in df.columns]
+        result = df[ordered_columns]
+        _emit_memory_debug(
+            f"joined years={list(years)} city_ids={list(city_ids)} rows={len(result):,} cols={len(result.columns)} mem_mb={_dataframe_memory_mb(result):.2f} requested={ordered_columns}"
+        )
+        return result
+
+    _emit_memory_debug(
+        f"joined years={list(years)} city_ids={list(city_ids)} rows={len(df):,} cols={len(df.columns)} mem_mb={_dataframe_memory_mb(df):.2f} requested=all"
+    )
     return df
 
 
@@ -270,9 +357,14 @@ class GoldQuery:
 
     # ── Terminal: execute the query ────────────────────────────────────────────
 
-    def load(self) -> pd.DataFrame:
+    def load(self, required_columns: list[str] | tuple[str, ...] | None = None) -> pd.DataFrame:
         # Execute the query and return a denormalised DataFrame.
         # Results are cached; empty DataFrame means no matching data.
+        requested_columns = tuple(required_columns or ())
+        internal_columns = list(requested_columns)
+        if self._months and "month" not in internal_columns:
+            internal_columns.append("month")
+
         # Resolve city_ids from names
         dim_city   = cities()
         target_ids: tuple[int, ...] = ()
@@ -291,11 +383,23 @@ class GoldQuery:
         if not target_years:
             return pd.DataFrame()
 
-        df = joined(city_ids=target_ids, years=target_years)
+        df = joined(
+            city_ids=target_ids,
+            years=target_years,
+            required_columns=tuple(internal_columns) if internal_columns else None,
+        )
 
         # Post-filter months (not worth caching at this granularity)
         if self._months and "month" in df.columns:
             df = df[df["month"].isin(self._months)]
+
+        if requested_columns:
+            keep_columns = [column for column in requested_columns if column in df.columns]
+            df = df[keep_columns]
+
+        _emit_memory_debug(
+            f"query.load years={list(target_years)} city_ids={list(target_ids)} rows={len(df):,} cols={len(df.columns)} mem_mb={_dataframe_memory_mb(df):.2f} requested={list(requested_columns) or 'all'}"
+        )
 
         return df.reset_index(drop=True)
 

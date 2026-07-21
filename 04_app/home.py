@@ -61,7 +61,9 @@ all_cities = gold.available_cities()
 if available_years:
     latest_year = max(available_years)
     with st.spinner(f"Loading KPIs for {latest_year}…"):
-        df_kpi = gold.query().years([latest_year]).load()
+        df_kpi = gold.query().years([latest_year]).load(
+            required_columns=["start_station_name", "duration_seconds"]
+        )
     headline_metrics(df_kpi, n_cities_override=len(all_cities) if all_cities else None)
     st.markdown(
         f"""
