@@ -194,22 +194,7 @@ with nav_col1:
 with nav_col2:
     st.markdown(
         """
-        <div style='border:1px solid #4ECDC4; border-radius:8px; padding:20px; min-height:130px;'>
-            <h3 style='color:#4ECDC4;'>⏱️ Temporal Patterns</h3>
-            <p style='color:#444;'>
-                Explore when people ride with hourly, weekday, and monthly
-                demand profiles across selected cities and years.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.page_link("pages/03_temporal_patterns.py", label="Open Temporal Patterns →")
-    st.page_link("pages/03_work_trips.py", label="Open Work Trips →")
-
-    st.markdown(
-        """
-        <div style='border:1px solid #7A77B9; border-radius:8px; padding:20px; min-height:130px; margin-top:10px;'>
+        <div style='border:1px solid #7A77B9; border-radius:8px; padding:20px; min-height:130px;'>
             <h3 style='color:#7A77B9;'>🍂 Seasonal Variations</h3>
             <p style='color:#444;'>
                 Compare winter versus summer demand and how seasonal behavior
@@ -235,12 +220,19 @@ with nav_col2:
     )
     st.page_link("pages/07_longest_trips_view.py", label="Open Longest Trips View →")
 
+# ── Footer ─────────────────────────────────────────────────────────────────────
+st.divider()
+st.caption(
+    "Data kindly provided by [Oslo Bysykkel](https://oslobysykkel.no/apne-data/historisk), "
+    "[Bergen Bysykkel](https://bergenbysykkel.no/apne-data/historisk), and "
+    "[Trondheim Bysykkel](https://trondheimbysykkel.no/apne-data/historisk) "
+    "under their open data programs. Thank you!"
+)
+
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### Chapters")
     st.page_link("pages/02_maps.py", label="🗺️ Maps")
-    st.page_link("pages/03_temporal_patterns.py", label="⏱️ Temporal Patterns")
-    st.page_link("pages/03_work_trips.py", label="🕘 Work Trips")
     st.page_link("pages/04_top_routes_stations.py", label="🔝 Top Routes & Stations")
     st.page_link("pages/05_seasonal_variations.py", label="🍂 Seasonal Variations")
     st.page_link("pages/06_yearly_trends.py", label="📅 Yearly Trends")

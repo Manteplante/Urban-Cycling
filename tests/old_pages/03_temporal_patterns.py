@@ -15,7 +15,6 @@ st.set_page_config(
     layout="wide",
 )
 st.header("⏱️ Temporal Patterns")
-st.page_link("pages/03_work_trips.py", label="Open Work Trips (rush-hour routes) →")
 
 # ── Load notebook exports ─────────────────────────────────────────────────────
 hourly = load_export_df("temporal_patterns_hourly.csv")
