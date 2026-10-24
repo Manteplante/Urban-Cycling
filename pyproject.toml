@@ -24,6 +24,7 @@ dependencies = [
 
 [tool.uv]
 package = false
+constraint-dependencies = ["certifi>=2026.10.19"]
 
 [dependency-groups]
 dev = [
